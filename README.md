@@ -151,7 +151,7 @@ failure at any step gives a map of the `:error`, with its `:type` and
 
 Anyone who can put a rel=me link on the user's page can sign in as the
 user. So if the page shows what others write, e.g. comments, remove
-rel=me from their links.
+rel=me from their links, as html-pieces does when it sanitizes.
 
 ### Keep nothing on the server
 

@@ -33,47 +33,36 @@ trims the slash only to compare an account's links, unless
 wary-fetch
 ----------
 
-- **Hashes, randomness and JSON.** Needed the same as indieauth-clj: SHA-256,
-  secure random texts, a comparison in constant time, and JSON of
-  GitHub's and Mastodon's answers. Did instead: use indieauth-clj's
-  `bytes` and `json`, which are internal to it, so a new SHA of
-  indieauth-clj can break this library until they have a home. Could
-  offer: `wary-fetch.bytes` and `:as :json`, as indieauth-clj's notes
-  say.
+- **Hashes and JSON.** Needed a comparison in constant time and the JSON
+  of GitHub's and Mastodon's answers on both platforms. Did: use
+  `wary-fetch.bytes` and `wary-fetch.json` of 0.3.0. Nothing is missing.
 - **A form for an OAuth endpoint.** Needed a POST of a form whose body
-  holds a secret, without following redirects, and the JSON object of the
-  answer or the OAuth error in it (RFC 6749, section 5.2), which GitHub
-  gives with 200. Did instead: `form-request`, `exchange!` and
-  `json-answer`, close to indieauth-clj's own. Could offer: a
-  `form-request` with a hidden body, since every OAuth client and
-  Micropub posts forms.
+  holds a secret, and the JSON object of the answer or the OAuth error in
+  it (RFC 6749, section 5.2), which GitHub gives with 200. Did: use
+  `http/form-request`, and read the error with a `json-answer` of this
+  library's own, since wary-fetch reads no OAuth errors.
 - **A network of Ring handlers for tests.** Needed to send requests to
   Ring handlers in memory, with redirects and cookies, and to the same
   handlers over HTTP on localhost. Did instead: a copy of indieauth-clj's
-  test support, whose server on localhost came from websub-clj's. Could
-  offer: a `:send` of Ring handlers for tests, e.g. in a small library of
-  its own.
+  test support, whose server on localhost came from websub-clj's.
+  wary-fetch won't offer it.
 
 html-pieces
 -----------
 
 - **rel=me in what others write.** RelMeAuth trusts every rel=me link on
-  the user's page, so a comment with `<a rel="me" href=…>` lets its
+  the user's page, so a comment with `<a rel="me" href=…>` would let its
   writer sign in as the owner, if the comment's account links back.
-  `html/hiccup` and `html/sanitize` keep `rel` on `a`, me included. Did
-  instead: the README tells you to take rel=me out of what others write.
-  Could offer: leaving out the `me` of a `rel` by default, since it
-  claims an identity, or an option for it. Mastodon's verification of
-  profile links has the same weakness.
+  html-pieces 0.4.0 takes me out of a rel when it sanitizes, by default.
+  Nothing is missing.
 - **The links of a piece of HTML.** Needed the hrefs of the a elements in
-  a Mastodon bio and in its profile fields. Did instead: a private
-  `hrefs`, a tree-seq over `html/parse`. Could offer: `links` of parsed
-  nodes, as indieauth-clj's notes propose for the head of a page.
+  a Mastodon bio and in its profile fields. Did: use `html/links` of
+  0.4.0. Nothing is missing.
 
 microformats-clj
 ----------------
 
-- **rel=me links.** `mf/parse` gives the `:rels` of a and link elements
-  anywhere in the page, which is what RelMeAuth wants, unlike IndieAuth,
-  so nothing is missing. It parses every microformat of the page too,
-  only for the rels to be read. Could offer: `rels` of a page alone.
+- **rel=me links.** Needed the rels of a and link elements anywhere in
+  the page, which is what RelMeAuth wants, unlike IndieAuth. Did: use
+  `mf/rels` of 0.2.0, which skips the microformats of the page. Nothing
+  is missing.
