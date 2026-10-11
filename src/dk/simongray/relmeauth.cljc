@@ -92,45 +92,56 @@
        distinct
        vec))
 
-(defn discover!
-  "Fetch the page of the profile URL `url` with `opts`, and give the
-  accounts that the user can sign in with, as a map:
+(defn- url-problem
+  "What's wrong with `url`, whose canonical form is `me`, as the URL that a
+  user signs in as, by the :profile-url-pred and :silo-urls? of `opts`, as
+  a map of the :error, or nil."
+  [url me {:keys [profile-url-pred silo-urls?] :as opts}]
+  (cond
+    (not (and me (profile-url-pred me)))
+    (requests/failure ::invalid-url (str "Not a profile URL: " url) {:url url})
+
+    (and (not silo-urls?) (providers/account me))
+    (requests/failure ::silo-url
+                      (str "An account at a provider, not a site of the"
+                           " user's own: " url)
+                      {:url url})))
+
+(defn discovery
+  "The accounts that the user of the profile URL `url` can sign in with,
+  from the `response` of its page that you fetched, by `opts`, as a map:
 
   - :me, the URL in canonical form
-  - :urls, the URLs that discovery went through: :me, those that
+  - :urls, the URLs that the fetch went through: :me, those that
     redirected, and the last, in canonical form
   - :accounts, those of the accounts function
 
-  A failure gives a map of the :error, with its :type and :reason. The
-  `opts` are those of default-options and authorization-request!. In
-  ClojureScript, it gives a promise."
-  [url opts]
-  (let [{:keys [profile-url-pred silo-urls? max-page-bytes]
-         :as   opts} (merge default-options opts)
-        me           (indieauth/canonical-url url)
-        problem      (cond
-                       (not (and me (profile-url-pred me)))
-                       (requests/failure ::invalid-url
-                                         (str "Not a profile URL: " url)
-                                         {:url url})
+  A URL that a user can't sign in as gives a map of the :error, with its
+  :type and :reason. The `opts` are those of default-options and
+  authorization-request!."
+  [url {:keys [redirects] :as response} opts]
+  (let [opts (merge default-options opts)
+        me   (indieauth/canonical-url url)]
+    (or (url-problem url me opts)
+        {:me       me
+         :urls     (->> (concat [me] (map second redirects) [(:url response)])
+                        (keep indieauth/canonical-url)
+                        distinct
+                        vec)
+         :accounts (accounts response opts)})))
 
-                       (and (not silo-urls?) (providers/account me))
-                       (requests/failure ::silo-url
-                                         (str "An account at a provider, not"
-                                              " a site of the user's own: " url)
-                                         {:url url}))]
-    (if problem
+(defn discover!
+  "Fetch the page of the profile URL `url` with `opts`, and give its
+  discovery, or a map of the :error. In ClojureScript, it gives a promise."
+  [url opts]
+  (let [{:keys [max-page-bytes] :as opts} (merge default-options opts)
+        me                                (indieauth/canonical-url url)]
+    (if-let [problem (url-problem url me opts)]
       (async/then nil (constantly problem))
       (requests/and-then
        (requests/fetch! me "text/html, application/xhtml+xml;q=0.9, */*;q=0.1"
                         max-page-bytes opts)
-       (fn [{:keys [redirects] :as response}]
-         {:me       me
-          :urls     (->> (concat [me] (map second redirects) [(:url response)])
-                         (keep indieauth/canonical-url)
-                         distinct
-                         vec)
-          :accounts (accounts response opts)})))))
+       #(discovery url % opts)))))
 
 ;;; signing in
 

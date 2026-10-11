@@ -113,8 +113,10 @@ rel=me:
 ;;                 :url      "https://indieweb.social/@simongray"}]}
 ```
 
-The accounts come in the order of the site's rel=me links. When there's
-more than one, let the user choose. Then send the user's browser to the
+If you've fetched the page already, e.g. to find its IndieAuth server,
+give the response to `discovery` for the same map. The accounts come in
+the order of the site's rel=me links. When there's more than one, let the
+user choose. Then send the user's browser to the
 provider at the URL of `authorization-request!`, and keep the session
 that it returns until the browser comes back, e.g. in your session store:
 

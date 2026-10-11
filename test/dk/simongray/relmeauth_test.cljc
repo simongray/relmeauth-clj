@@ -162,6 +162,25 @@
                         (is (= "https://social.example/@ann" me) "unless :silo-urls? is true")
                         (is (= ["https://github.com/ann"] (map :url accounts))))))))
 
+(deftest discovery-of-a-fetched-page
+  (let [response {:url       "https://WWW.user.example"
+                  :redirects [[301 "https://user.example/" {}]
+                              [302 "https://user.example/home" {}]]
+                  :headers   {"content-type" "text/html"}
+                  :body      site-page}
+        opts     {:github {} :mastodon {}}]
+    (testing "the URLs of the fetch, in canonical form, and the accounts of the page"
+      (is (= {:me       "https://user.example/"
+              :urls     ["https://user.example/" "https://user.example/home" "https://www.user.example/"]
+              :accounts [{:provider :github :username "ann" :url "https://github.com/ann"}
+                         {:provider :mastodon :instance "https://social.example" :username "ann"
+                          :url      "https://social.example/@ann"}]}
+             (relmeauth/discovery "user.example" response opts))))
+    (testing "the checks of discover!"
+      (is (= ::relmeauth/invalid-url (error-type (relmeauth/discovery "https://user.example:8443/" response opts))))
+      (is (= ::relmeauth/silo-url (error-type (relmeauth/discovery "https://github.com/ann" response opts))))
+      (is (= "https://github.com/ann" (:me (relmeauth/discovery "https://github.com/ann" response (assoc opts :silo-urls? true))))))))
+
 (deftest link-backs
   (let [session {:me      "https://user.example/"
                  :urls    ["https://user.example/" "https://www.user.example/"]
