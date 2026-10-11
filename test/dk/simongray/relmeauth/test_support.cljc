@@ -9,11 +9,11 @@
   (:require [clojure.string :as str]
             #?(:cljs [clojure.test :refer [is async]])
             [dk.simongray.indieauth :as indieauth]
-            [dk.simongray.indieauth.json :as json]
             [dk.simongray.relmeauth.providers :as providers]
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
             #?(:clj [dk.simongray.wary-fetch.headers :as headers])
+            [dk.simongray.wary-fetch.json :as json]
             [dk.simongray.wary-fetch.url :as url])
   #?(:clj (:import [com.sun.net.httpserver HttpExchange HttpHandler HttpServer]
                    [java.net InetSocketAddress]

@@ -6,11 +6,11 @@
   (:require [clojure.string :as str]
             [dk.simongray.html-pieces :as html]
             [dk.simongray.indieauth :as indieauth]
-            [dk.simongray.indieauth.json :as json]
             [dk.simongray.relmeauth :as-alias relmeauth]
             [dk.simongray.relmeauth.requests :as requests]
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
+            [dk.simongray.wary-fetch.json :as json]
             [dk.simongray.wary-fetch.secret :as secret]
             [dk.simongray.wary-fetch.url :as url]))
 
@@ -140,7 +140,7 @@
   (async/then (requests/fetch! (str instance (:metadata mastodon-paths))
                                "application/json" max-json-bytes opts)
               (fn [{:keys [body]}]
-                (if (some #{"profile"} (:scopes_supported (json/read-object body)))
+                (if (some #{"profile"} (:scopes_supported (json/read-json body)))
                   "profile"
                   "read:accounts"))))
 

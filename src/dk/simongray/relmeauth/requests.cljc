@@ -3,11 +3,9 @@
   answers. A request that fails gives a map of the :error, with its :type
   and :reason, rather than throwing, and and-then passes it on."
   (:require [dk.simongray.relmeauth :as-alias relmeauth]
-            [dk.simongray.indieauth.json :as json]
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
-            [dk.simongray.wary-fetch.secret :as secret]
-            [dk.simongray.wary-fetch.url :as url]))
+            [dk.simongray.wary-fetch.json :as json]))
 
 (defn failure
   "A map of the :error of `type`, a keyword, with the `reason` and the facts
@@ -52,15 +50,10 @@
                 (or value {:error (http/failure error)}))))
 
 (defn form-request
-  "The request map that posts the form of `fields`, pairs of a name and a
-  value, to `url` for a JSON answer. The body is a hidden text of
-  wary-fetch, since it can hold a code or a secret."
+  "The request that posts the form of `fields`, pairs of a name and a
+  value, to `url` for a JSON answer, with its body hidden."
   [url fields]
-  {:method  :post
-   :url     url
-   :headers {"Content-Type" "application/x-www-form-urlencoded"
-             "Accept"       "application/json"}
-   :body    (secret/hide (url/query-string fields))})
+  (http/form-request url fields {:headers {"Accept" "application/json"}}))
 
 ;; RFC 6749, section 5.2. GitHub answers an error with 200 too.
 (defn json-answer
@@ -68,7 +61,8 @@
   success and it holds no error, or a map of the :error of `type`, with
   the :code of the error that the provider gave."
   [type {:keys [status body] :as response}]
-  (let [m                                 (json/read-object body)
+  (let [x                                 (json/read-json body)
+        m                                 (when (map? x) x)
         {:keys [error error_description]} m
         success?                          (and (integer? status)
                                                (<= 200 status 299))]

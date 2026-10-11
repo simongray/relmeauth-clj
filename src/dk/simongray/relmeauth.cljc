@@ -11,13 +11,13 @@
   (:require [clojure.string :as str]
             [dk.simongray.html-pieces :as html]
             [dk.simongray.indieauth :as indieauth]
-            [dk.simongray.indieauth.bytes :as bytes]
             [dk.simongray.indieauth.state :as state]
             [dk.simongray.microformats :as mf]
             [dk.simongray.relmeauth.providers :as providers]
             [dk.simongray.relmeauth.requests :as requests]
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
+            [dk.simongray.wary-fetch.bytes :as bytes]
             [dk.simongray.wary-fetch.headers :as headers]))
 
 ;;; options
