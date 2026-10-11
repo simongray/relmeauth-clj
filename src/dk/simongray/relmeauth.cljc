@@ -141,6 +141,10 @@
 
   - :profile-url-pred, profile-url?, the URLs that a user can sign in as,
     those that IndieAuth takes
+  - :silo-urls?, false: a user can't sign in as an account at a provider,
+    e.g. https://github.com/ann, since the URL isn't the user's own, as
+    the algorithm on the microformats wiki has it. The provider can give
+    the username to someone else.
   - :trim-slash?, true: a slash at the end of a path doesn't count when an
     account's links are compared with the user's URLs, so that a link to
     https://example.com/me links back to https://example.com/me/. The :me
@@ -155,6 +159,7 @@
   - :send, http/send-public!, which sends to the public internet alone
   - :now-fn, a function that gives the instant now"
   {:profile-url-pred profile-url?
+   :silo-urls?       false
    :trim-slash?      true
    :session-seconds  600
    :timeout-seconds  10
@@ -362,13 +367,21 @@
   `opts` are those of default-options and authorization-request!. In
   ClojureScript, it gives a promise."
   [url opts]
-  (let [{:keys [profile-url-pred max-page-bytes] :as opts} (merge default-options
-                                                                  opts)
-        me (canonical-url url)]
-    (if-not (and me (profile-url-pred me))
-      (async/then nil (constantly (failure ::invalid-url
-                                           (str "Not a profile URL: " url)
-                                           {:url url})))
+  (let [{:keys [profile-url-pred silo-urls? max-page-bytes]
+         :as   opts} (merge default-options opts)
+        me           (canonical-url url)
+        problem      (cond
+                       (not (and me (profile-url-pred me)))
+                       (failure ::invalid-url (str "Not a profile URL: " url)
+                                {:url url})
+
+                       (and (not silo-urls?)
+                            (or (github-account me) (mastodon-account me)))
+                       (failure ::silo-url (str "An account at a provider, not"
+                                                " a site of the user's own: " url)
+                                {:url url}))]
+    (if problem
+      (async/then nil (constantly problem))
       (and-then
        (fetch! me "text/html, application/xhtml+xml;q=0.9, */*;q=0.1"
                max-page-bytes opts)

@@ -151,8 +151,9 @@
   (get-in m [:error :type]))
 
 (deftest discovery
-  (let [{:keys [opts]} (world {:routes {"https://moved.example/"     (t/redirect 301 "https://user.example/")
-                                        "https://user.example/gone" (fn [_] {:status 404 :headers {} :body ""})}})]
+  (let [{:keys [opts]} (world {:routes {"https://moved.example/"      (t/redirect 301 "https://user.example/")
+                                        "https://user.example/gone"  (fn [_] {:status 404 :headers {} :body ""})
+                                        "https://social.example/@ann" (t/page "<a rel=me href=https://github.com/ann>")}})]
     (run #(async/then (relmeauth/discover! "user.example" opts)
                       (fn [{:keys [me urls accounts]}]
                         (is (= "https://user.example/" me))
@@ -165,7 +166,15 @@
          #(async/then (relmeauth/discover! "https://user.example/gone" opts)
                       (fn [r] (is (= ::relmeauth/failed (error-type r)))))
          #(async/then (relmeauth/discover! "https://user.example:8443/" opts)
-                      (fn [r] (is (= ::relmeauth/invalid-url (error-type r))))))))
+                      (fn [r] (is (= ::relmeauth/invalid-url (error-type r)))))
+         #(async/then (relmeauth/discover! "https://social.example/@ann" opts)
+                      (fn [r] (is (= ::relmeauth/silo-url (error-type r)) "an account at a provider isn't the user's own")))
+         #(async/then (relmeauth/discover! "github.com/ann" opts)
+                      (fn [r] (is (= ::relmeauth/silo-url (error-type r)))))
+         #(async/then (relmeauth/discover! "https://social.example/@ann" (assoc opts :silo-urls? true))
+                      (fn [{:keys [me accounts]}]
+                        (is (= "https://social.example/@ann" me) "unless :silo-urls? is true")
+                        (is (= ["https://github.com/ann"] (map :url accounts))))))))
 
 (deftest link-backs
   (let [session {:me      "https://user.example/"
