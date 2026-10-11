@@ -154,7 +154,8 @@ rel=me from their links.
 ### Keep nothing on the server
 
 To keep no session on the server, add a `:secret` to the options, a
-string of 32 bytes or more, e.g. from `relmeauth/token`. The state then
+string of 32 bytes or more, e.g. from indieauth-clj's `indieauth/token`.
+The state then
 carries the session, signed, and you put the session's
 [nonce](https://developer.mozilla.org/en-US/docs/Glossary/Nonce) in a
 [cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies),

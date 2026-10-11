@@ -3,7 +3,7 @@
   answers. A request that fails gives a map of the :error, with its :type
   and :reason, rather than throwing, and and-then passes it on."
   (:require [dk.simongray.relmeauth :as-alias relmeauth]
-            [dk.simongray.relmeauth.json :as json]
+            [dk.simongray.indieauth.json :as json]
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
             [dk.simongray.wary-fetch.secret :as secret]

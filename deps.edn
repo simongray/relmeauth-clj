@@ -2,12 +2,11 @@
 
  ;; Clojure 1.11 is the floor, and the tests run on it unless an alias says
  ;; otherwise. wary-fetch sends the requests, html-pieces parses a page once,
- ;; microformats-clj reads its rel=me links, indieauth-clj has the URLs of
- ;; users, and data.json reads and writes JSON on the JVM, which JavaScript
- ;; does by itself. indieauth-clj is a Git dependency until both libraries
- ;; are released, which build.clj says more of.
+ ;; microformats-clj reads its rel=me links, and indieauth-clj has the URLs
+ ;; of users, the signed states, and the hashes and JSON of both platforms.
+ ;; indieauth-clj is a Git dependency until both libraries are released,
+ ;; which build.clj says more of.
  :deps  {org.clojure/clojure           {:mvn/version "1.11.4"}
-         org.clojure/data.json         {:mvn/version "2.5.2"}
          dk.simongray/wary-fetch       {:mvn/version "0.2.0"}
          dk.simongray/html-pieces      {:mvn/version "0.3.0"}
          dk.simongray/microformats-clj {:mvn/version "0.1.0"}

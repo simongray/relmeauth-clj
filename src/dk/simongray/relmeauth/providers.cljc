@@ -5,9 +5,9 @@
   user signs in there."
   (:require [clojure.string :as str]
             [dk.simongray.html-pieces :as html]
+            [dk.simongray.indieauth :as indieauth]
+            [dk.simongray.indieauth.json :as json]
             [dk.simongray.relmeauth :as-alias relmeauth]
-            [dk.simongray.relmeauth.bytes :as bytes]
-            [dk.simongray.relmeauth.json :as json]
             [dk.simongray.relmeauth.requests :as requests]
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
@@ -245,12 +245,6 @@
 
 ;;; OAuth
 
-;; RFC 7636, section 4.2
-(defn- code-challenge
-  "The S256 code challenge of the PKCE code `verifier`."
-  [verifier]
-  (bytes/base64url (bytes/sha256 (bytes/encode verifier))))
-
 ;; RFC 6749, section 4.1.1; RFC 7636, section 4.3
 (defn authorization-url
   "The URL at the provider of the `session` that asks the user to sign in
@@ -262,7 +256,7 @@
              ["client_id" client-id]
              ["redirect_uri" redirect-uri]
              ["state" state]
-             ["code_challenge" (code-challenge code-verifier)]
+             ["code_challenge" (indieauth/code-challenge code-verifier)]
              ["code_challenge_method" "S256"]]
             (case (:provider account)
               :github   [["login" (:username account)]

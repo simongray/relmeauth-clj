@@ -5,6 +5,7 @@
   indieauth-clj's, and its tests cover them."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [dk.simongray.indieauth :as indieauth]
             [dk.simongray.relmeauth :as relmeauth]
             [dk.simongray.relmeauth.providers :as providers]
             [dk.simongray.relmeauth.test-support :as t :refer [run]]
@@ -231,7 +232,7 @@
                       (fn [{:keys [url session]}]
                         (async/then (t/authorize! (:send w) url)
                                     (fn [params]
-                                      (async/then (relmeauth/redeem! (assoc session :code-verifier (relmeauth/token)) params (:opts w))
+                                      (async/then (relmeauth/redeem! (assoc session :code-verifier (indieauth/token)) params (:opts w))
                                                   (fn [r]
                                                     (testing "PKCE, and GitHub's error with 200"
                                                       (is (= ::relmeauth/token-error (error-type r)))
@@ -327,7 +328,7 @@
                             (is (= session (relmeauth/state-session secret-text state nonce)))
                             (is (= {:page "/posts/1"} (:data (relmeauth/state-session secret-text state nonce)))))
                           (testing "nil for"
-                            (is (nil? (relmeauth/state-session secret-text state (relmeauth/token))) "another browser's nonce")
+                            (is (nil? (relmeauth/state-session secret-text state (indieauth/token))) "another browser's nonce")
                             (is (nil? (relmeauth/state-session secret-text state nil)) "no nonce")
                             (is (nil? (relmeauth/state-session secret-text (str state "x") nonce)) "a changed state")
                             (is (nil? (relmeauth/state-session (str secret-text "!") state nonce)) "another secret")

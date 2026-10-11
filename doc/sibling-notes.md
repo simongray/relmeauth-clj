@@ -15,11 +15,12 @@ indieauth-clj
   the two libraries are released together, since a jar's pom can't list a
   Git dependency. Nothing is missing.
 - **Signed states.** Needed a session signed into the state, with its
-  nonce in a cookie, and the PKCE verifier derived from the state. Did
-  instead: copies of `bytes.cljc` and `signed.cljc`, and a
-  `state-session` with the same arguments as indieauth-clj's. Could
-  offer: `dk.simongray.indieauth.signed` is public now, so the copy of
-  `signed.cljc` could go.
+  nonce in a cookie, and the PKCE verifier derived from the state. Did:
+  use `dk.simongray.indieauth.signed`, and a `state-session` with the
+  same arguments as indieauth-clj's. Its internal `state` namespace does
+  the same, but signs with indieauth-clj's own kind of state, and a state
+  of RelMeAuth must never pass for one of IndieAuth. Could offer: `state`
+  with a kind of the caller's.
 - **The request of an IndieAuth server.** `request-token` and
   `token-request` were all it took to carry the request through a sign-in
   with RelMeAuth, as the `:data` of the state. Nothing is missing.
@@ -34,11 +35,12 @@ wary-fetch
 ----------
 
 - **Hashes, randomness and JSON.** Needed the same as indieauth-clj: SHA-256,
-  HMAC-SHA256, secure random bytes and base64url, and JSON of GitHub's
-  and Mastodon's answers. Did instead: copies of indieauth-clj's
-  `bytes.cljc` and `json.cljc`, with data.json on the JVM. This is the
-  third library with them. Could offer: `wary-fetch.bytes` and `:as
-  :json`, as indieauth-clj's notes say.
+  secure random texts, a comparison in constant time, and JSON of
+  GitHub's and Mastodon's answers. Did instead: use indieauth-clj's
+  `bytes` and `json`, which are internal to it, so a new SHA of
+  indieauth-clj can break this library until they have a home. Could
+  offer: `wary-fetch.bytes` and `:as :json`, as indieauth-clj's notes
+  say.
 - **A form for an OAuth endpoint.** Needed a POST of a form whose body
   holds a secret, without following redirects, and the JSON object of the
   answer or the OAuth error in it (RFC 6749, section 5.2), which GitHub

@@ -11,11 +11,11 @@
   (:require [clojure.string :as str]
             [dk.simongray.html-pieces :as html]
             [dk.simongray.indieauth :as indieauth]
+            [dk.simongray.indieauth.bytes :as bytes]
+            [dk.simongray.indieauth.signed :as signed]
             [dk.simongray.microformats :as mf]
-            [dk.simongray.relmeauth.bytes :as bytes]
             [dk.simongray.relmeauth.providers :as providers]
             [dk.simongray.relmeauth.requests :as requests]
-            [dk.simongray.relmeauth.signed :as signed]
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
             [dk.simongray.wary-fetch.headers :as headers]))
@@ -51,15 +51,6 @@
    :send             http/send-public!
    :now-fn           #?(:clj  #(java.util.Date.)
                         :cljs #(js/Date.))})
-
-(defn token
-  "A random text of `n` bytes, 32 by default, that nobody can guess, e.g.
-  for a state or a secret. The bytes come from a secure source, and the
-  text is in the URL-safe letters of base64."
-  ([]
-   (token 32))
-  ([n]
-   (bytes/base64url (bytes/random n))))
 
 (defn memory-store
   "A store of registrations in the atom `a`, or in a new one, as a map of
@@ -147,11 +138,6 @@
   "The kind of a signed state that carries a session."
   ::session)
 
-(defn- fingerprint
-  "The SHA-256 of the text `s` in the URL-safe letters of base64."
-  [s]
-  (bytes/base64url (bytes/sha256 (bytes/encode s))))
-
 ;; RFC 6749, section 4.1.1; RFC 7636, section 4.3
 (defn authorization-request!
   "Give the URL at the provider of the `account` to send the user's browser
@@ -184,15 +170,15 @@
                                :redirect-uri redirect-uri}
                         scope        (assoc :scope scope)
                         (some? data) (assoc :data data))
-             nonce    (when secret (token))
+             nonce    (when secret (indieauth/token))
              state    (if secret
                         (signed/sign secret session-kind
-                                     (assoc session :nonce (fingerprint nonce))
+                                     (assoc session :nonce (bytes/hash-text nonce))
                                      (now-fn))
-                        (token))
+                        (indieauth/token))
              verifier (if secret
                         (signed/derive-text secret "code_verifier" state)
-                        (token))
+                        (indieauth/token))
              session  (cond-> (assoc session :state state :code-verifier verifier)
                         nonce (assoc :nonce nonce))]
          {:url     (providers/authorization-url session client-id)
@@ -213,8 +199,7 @@
          m (signed/unsign secret session-kind state (now-fn) session-seconds)]
      (when (and m
                 (string? nonce)
-                (bytes/same? (bytes/encode (fingerprint nonce))
-                             (bytes/encode (str (:nonce m)))))
+                (bytes/same-text? (bytes/hash-text nonce) (:nonce m)))
        (assoc m
               :nonce         nonce
               :state         state
@@ -241,9 +226,7 @@
   (let [given (param params "state")
         error (param params "error")]
     (cond
-      (not (and (string? given)
-                (string? state)
-                (bytes/same? (bytes/encode given) (bytes/encode state))))
+      (not (bytes/same-text? given state))
       {:type ::state-mismatch :reason "The state isn't the one that was sent"}
 
       error

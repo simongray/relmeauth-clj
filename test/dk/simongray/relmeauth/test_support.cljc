@@ -8,9 +8,8 @@
   indieauth-clj's test support."
   (:require [clojure.string :as str]
             #?(:cljs [clojure.test :refer [is async]])
-            [dk.simongray.relmeauth :as relmeauth]
-            [dk.simongray.relmeauth.bytes :as bytes]
-            [dk.simongray.relmeauth.json :as json]
+            [dk.simongray.indieauth :as indieauth]
+            [dk.simongray.indieauth.json :as json]
             [dk.simongray.relmeauth.providers :as providers]
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
@@ -178,7 +177,7 @@
 (defn- verified?
   "Whether the PKCE `verifier` is that of the S256 `challenge`."
   [verifier challenge]
-  (= challenge (bytes/base64url (bytes/sha256 (bytes/encode (str verifier))))))
+  (= challenge (indieauth/code-challenge (str verifier))))
 
 ;;; a provider
 
@@ -203,7 +202,7 @@
         (found redirect_uri [["error" "access_denied"] ["state" state]])
 
         :else
-        (let [code (relmeauth/token)]
+        (let [code (indieauth/token)]
           (swap! provider assoc-in [:codes code] {:client-id    client_id
                                                    :redirect-uri redirect_uri
                                                    :challenge    code_challenge
@@ -229,7 +228,7 @@
       {:error "invalid_grant"}
 
       :else
-      (let [token (relmeauth/token)]
+      (let [token (indieauth/token)]
         (swap! provider assoc-in [:tokens token] (:username entry))
         {:access_token token :token_type "Bearer"}))))
 
@@ -291,8 +290,8 @@
              (json-response 422 {:error "Validation failed"})
 
              :else
-             (let [id     (relmeauth/token)
-                   secret (relmeauth/token)]
+             (let [id     (indieauth/token)
+                   secret (indieauth/token)]
                (swap! provider assoc-in [:apps id] {:secret       secret
                                                      :redirect-uri redirect_uris
                                                      :scopes       (set asked)})
