@@ -32,7 +32,9 @@
   - :trim-slash?, true: let a link back differ from the user's URL by a
     slash at the end of its path
   - :session-seconds, 600: how long a user has to sign in at the provider,
-    and how long a signed state lasts
+    and how long a signed session lasts
+  - :max-cookie-bytes, state/max-cookie-bytes: the largest cookie of a
+    signed session, past which authorization-request! throws
   - :timeout-seconds, 10: the limit of each request
   - :max-redirects, 5: how many redirects the fetch of the user's page
     follows
@@ -44,6 +46,7 @@
    :silo-urls?       false
    :trim-slash?      true
    :session-seconds  600
+   :max-cookie-bytes state/max-cookie-bytes
    :timeout-seconds  10
    :max-redirects    5
    :max-page-bytes   (* 2 1024 1024)
@@ -146,7 +149,7 @@
 ;;; signing in
 
 (def ^:no-doc session-kind
-  "The kind of a signed state that carries a session."
+  "The kind of a signed cookie that carries a session."
   ::session)
 
 ;; RFC 6749, section 4.1.1; RFC 7636, section 4.3
@@ -160,16 +163,17 @@
     the secret as a hidden text of wary-fetch
   - :mastodon, the :registrations store, e.g. memory-store, and the
     :client-name and :website that a server shows of your app
-  - :secret, a text of 32 bytes or more, to carry the session in the
-    state, signed, for state-session
+  - :secret, a text of 32 bytes or more, to carry the session in a
+    cookie, signed, for state-session
   - :data, any EDN of yours that the session carries
 
   Keep the session for the browser's next request, or with a :secret, its
-  :nonce in a cookie. A Mastodon server that refuses to register your app
-  gives a map of the :error. In ClojureScript, it gives a promise."
+  :cookie in an HttpOnly cookie. A session too large for a cookie throws.
+  A Mastodon server that refuses to register your app gives a map of the
+  :error. In ClojureScript, it gives a promise."
   [{:keys [me urls] :as discovery} account opts]
-  (let [{:keys [redirect-uri secret data now-fn] :as opts} (merge default-options
-                                                                  opts)]
+  (let [{:keys [redirect-uri secret data now-fn max-cookie-bytes]
+         :as   opts} (merge default-options opts)]
     (when-let [problem (providers/request-problem account opts)]
       (throw (ex-info problem {:account account :redirect-uri redirect-uri})))
     (requests/and-then
@@ -182,23 +186,25 @@
                        scope        (assoc :scope scope)
                        (some? data) (assoc :data data))
              session (merge session
-                            (state/fresh secret session-kind session (now-fn)))]
+                            (state/fresh secret session-kind session (now-fn)
+                                         max-cookie-bytes))]
          {:url     (providers/authorization-url session client-id)
           :session session})))))
 
 ;; RFC 9700, section 4.7.1: a state that is bound to the browser
 (defn state-session
-  "The session that the signed `state` carries, which authorization-request!
-  gave with the `secret`, if the `nonce` is the session's, or nil. It's nil
-  too when the state is older than the :session-seconds of `opts`.
+  "The session that the signed `cookie` carries, which
+  authorization-request! gave with the `secret`, if its state is the
+  `state` that came back, or nil. It's nil too when the cookie is older
+  than the :session-seconds of `opts`.
 
-  The nonce comes from the browser that came back, e.g. from a cookie,
-  so that only the browser that started the sign-in can finish it."
-  ([secret state nonce]
-   (state-session secret state nonce {}))
-  ([secret state nonce opts]
+  The cookie comes from the browser that came back, so that only the
+  browser that started the sign-in can finish it."
+  ([secret state cookie]
+   (state-session secret state cookie {}))
+  ([secret state cookie opts]
    (let [{:keys [session-seconds now-fn]} (merge default-options opts)]
-     (state/session secret session-kind state nonce (now-fn) session-seconds))))
+     (state/session secret session-kind state cookie (now-fn) session-seconds))))
 
 ;;; the callback
 

@@ -9,7 +9,7 @@
          dk.simongray/wary-fetch       {:mvn/version "0.3.0"}
          dk.simongray/html-pieces      {:mvn/version "0.4.1"}
          dk.simongray/microformats-clj {:mvn/version "0.2.0"}
-         dk.simongray/indieauth-clj    {:mvn/version "0.1.0"}}
+         dk.simongray/indieauth-clj    {:mvn/version "0.2.0"}}
 
  :aliases
  {;; clojure -X:test

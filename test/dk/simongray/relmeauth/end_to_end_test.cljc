@@ -1,9 +1,8 @@
 (ns dk.simongray.relmeauth.end-to-end-test
   "An app that signs its owner in with RelMeAuth, as an IndieAuth server
   signs in its user, with a browser in between. The session goes through
-  the browser in the signed state, with its nonce in a cookie, and nothing
-  is kept but Mastodon's registrations. On the JVM, the requests go over
-  HTTP on localhost too."
+  the browser in a signed cookie, and nothing is kept but Mastodon's
+  registrations. On the JVM, the requests go over HTTP on localhost too."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [dk.simongray.relmeauth :as relmeauth]
@@ -52,13 +51,13 @@
              (fn [{:keys [url session]}]
                {:status  302
                 :headers {"Location"   url
-                          "Set-Cookie" (str "nonce=" (:nonce session) "; Path=/; HttpOnly; Secure; SameSite=Lax")}
+                          "Set-Cookie" (str "signin=" (:cookie session) "; Path=/; HttpOnly; Secure; SameSite=Lax")}
                 :body    ""}))))))
 
      "https://app.example/callback"
      (fn [{:keys [query-string] :as request}]
        (let [params  (url/query-params query-string)
-             session (relmeauth/state-session secret-text (get params "state") (cookie request "nonce"))]
+             session (relmeauth/state-session secret-text (get params "state") (cookie request "signin"))]
          (if-not session
            (text 403 "This browser didn't start the sign-in")
            (async/then (relmeauth/redeem! session params opts)

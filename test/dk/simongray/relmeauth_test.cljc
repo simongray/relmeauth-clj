@@ -341,32 +341,39 @@
         more {:secret secret-text :data {:page "/posts/1"}}]
     (run #(async/then (request! w :github more)
                       (fn [{:keys [url session]}]
-                        (let [state (get (t/query url) "state")
-                              nonce (:nonce session)]
+                        (let [state  (get (t/query url) "state")
+                              cookie (:cookie session)]
                           (is (= state (:state session)))
-                          (testing "the session comes back from the state and the nonce"
-                            (is (= session (relmeauth/state-session secret-text state nonce)))
-                            (is (= {:page "/posts/1"} (:data (relmeauth/state-session secret-text state nonce)))))
+                          (testing "a short, random state, with the session in the cookie alone"
+                            (is (= 43 (count state)))
+                            (is (not (str/includes? url cookie))))
+                          (testing "the session comes back from the cookie and the state"
+                            (is (= session (relmeauth/state-session secret-text state cookie)))
+                            (is (= {:page "/posts/1"} (:data (relmeauth/state-session secret-text state cookie)))))
                           (testing "nil for"
-                            (is (nil? (relmeauth/state-session secret-text state (indieauth/token))) "another browser's nonce")
-                            (is (nil? (relmeauth/state-session secret-text state nil)) "no nonce")
-                            (is (nil? (relmeauth/state-session secret-text (str state "x") nonce)) "a changed state")
-                            (is (nil? (relmeauth/state-session (str secret-text "!") state nonce)) "another secret")
-                            (is (nil? (relmeauth/state-session secret-text state nonce
+                            (is (nil? (relmeauth/state-session secret-text (indieauth/token) cookie)) "another sign-in's state")
+                            (is (nil? (relmeauth/state-session secret-text state nil)) "no cookie")
+                            (is (nil? (relmeauth/state-session secret-text state (str cookie "x"))) "a changed cookie")
+                            (is (nil? (relmeauth/state-session (str secret-text "!") state cookie)) "another secret")
+                            (is (nil? (relmeauth/state-session secret-text state cookie
                                                                {:now-fn (fn [] (seconds-later 601))}))
                                 "an old one"))
-                          (testing "a state of IndieAuth under the same secret, and the other way round"
-                            (let [{indieauth-state :state indieauth-nonce :nonce}
+                          (testing "a cookie of IndieAuth under the same secret, and the other way round"
+                            (let [{indieauth-state :state indieauth-cookie :cookie}
                                   (state/fresh secret-text :dk.simongray.indieauth/session {:me "https://user.example/"}
                                                (seconds-later 0))]
-                              (is (nil? (relmeauth/state-session secret-text indieauth-state indieauth-nonce)))
-                              (is (nil? (indieauth/state-session secret-text state nonce)))))
+                              (is (nil? (relmeauth/state-session secret-text indieauth-state indieauth-cookie)))
+                              (is (nil? (indieauth/state-session secret-text state cookie)))))
                           (-> (t/authorize! (:send w) url)
                               (async/then (fn [params]
-                                            (relmeauth/redeem! (relmeauth/state-session secret-text (get params "state") nonce)
+                                            (relmeauth/redeem! (relmeauth/state-session secret-text (get params "state") cookie)
                                                                params
                                                                (merge (:opts w) more))))
-                              (async/then (fn [r] (is (= ann-signed-in r)))))))))))
+                              (async/then (fn [r] (is (= ann-signed-in r))))))))
+         (fn []
+           (testing "a session too large for a cookie throws"
+             (-> (async/attempt #(request! w :github (assoc more :data (apply str (repeat 4000 "x")))))
+                 (async/then (fn [{:keys [error]}] (is (some? error))))))))))
 
 (deftest requests-that-throw
   (let [{:keys [opts]} (world {})

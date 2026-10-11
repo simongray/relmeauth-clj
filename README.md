@@ -157,20 +157,20 @@ rel=me from their links, as html-pieces does when it sanitizes.
 
 To keep no session on the server, add a `:secret` to the options, a
 string of 32 bytes or more, e.g. from indieauth-clj's `indieauth/token`.
-The state then
-carries the session, signed, and you put the session's
-[nonce](https://developer.mozilla.org/en-US/docs/Glossary/Nonce) in a
+The session's `:cookie` then carries the session, signed, so put it in a
 [cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies),
 e.g. one marked `HttpOnly` and `SameSite=Lax`. At the redirect URL,
-`state-session` gets the session back from the state and the cookie's
-nonce, so only the browser that started a sign-in can finish it:
+`state-session` gets the session back from that cookie and the state, so
+only the browser that started a sign-in can finish it:
 
 ```clojure
-(relmeauth/state-session secret (get query-params "state") nonce)
+(relmeauth/state-session secret (get query-params "state") cookie)
 ```
 
 Any EDN that you give as `:data` in the options comes back in the
-session, e.g. the page to return to.
+session, e.g. the page to return to. The state stays short whatever the
+session holds, since providers limit and log URLs, but a session too
+large for a cookie throws rather than being dropped by the browser.
 
 ### Sign in the owner of an IndieAuth server
 
@@ -187,7 +187,7 @@ password, and the request of the IndieAuth client travels along as
 
 (defn authorize
   "Send the browser of the `ring-request` to the owner's first account,
-  with the IndieAuth `request` in the state."
+  with the IndieAuth `request` in the session's cookie."
   [ring-request request]
   (async/then
    (relmeauth/discover! "https://simon.grays.blog/" opts)
@@ -198,7 +198,7 @@ password, and the request of the IndieAuth client travels along as
       (fn [{:keys [url session]}]
         {:status  302
          :headers {"Location"   url
-                   "Set-Cookie" (str "nonce=" (:nonce session)
+                   "Set-Cookie" (str "signin=" (:cookie session)
                                      "; Path=/; HttpOnly; Secure; SameSite=Lax")}})))))
 ```
 
