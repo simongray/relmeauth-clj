@@ -279,6 +279,10 @@
      :url      (str "https://github.com/" username)}))
 
 ;; Servers with Mastodon's API, e.g. GoToSocial, have profiles at /@ too.
+;; TODO: recognise those at other paths, e.g. Pixelfed's /ann and the
+;; /users/ann of Pleroma and Akkoma, by asking each host its software with
+;; NodeInfo during discovery, and keeping the answers, also the noes, in a
+;; store with an expiry.
 (defn mastodon-account
   "The account on a Mastodon server at the URL `href` of a rel=me link, as
   a map of the :provider :mastodon, the :instance, the :username and the
