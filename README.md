@@ -4,30 +4,39 @@ relmeauth-clj
 [![Clojars Project](https://img.shields.io/clojars/v/dk.simongray/relmeauth-clj.svg)](https://clojars.org/dk.simongray/relmeauth-clj)
 
 This is a Clojure and ClojureScript implementation of
-[RelMeAuth](https://indieweb.org/RelMeAuth), with which people sign in as
-their own website through an account they have elsewhere. The site links
-to the account with rel=me, the user signs in there with OAuth, and the
-account links back to the site. It covers GitHub, Mastodon and the
-servers that share Mastodon's API.
+[RelMeAuth](https://indieweb.org/RelMeAuth), which lets people sign in as
+their own website through an account they already have elsewhere. The
+site links to the account with [rel=me](https://indieweb.org/rel-me), the
+user signs in to the account with [OAuth](https://oauth.net/2/), and the
+account links back to the site. It works with GitHub,
+[Mastodon](https://joinmastodon.org/) and other servers that offer
+[Mastodon's API](https://docs.joinmastodon.org/client/intro/).
 
 - **Both directions.** The account that signs in must be the one that
-  the site names, and it must link back to the site: in GitHub's website
-  field, or in a Mastodon bio or profile field.
-- **Plain data.** Accounts, requests and sessions are maps, so the page
-  where the user chooses an account is yours to render.
-- **Nothing in the background.** Your app registers at a Mastodon server
-  the first time a user signs in there, and the registration goes to a
-  store of yours.
-- **Safe by default.** Only the public internet is fetched, with limits,
-  every sign-in uses PKCE, the state is tied to the browser, and client
-  secrets are hidden texts that don't print.
+  the site names, and it must link back to the site, either in GitHub's
+  website field or in a Mastodon bio or
+  [profile field](https://docs.joinmastodon.org/user/profile/#fields).
+- **Plain data.** Accounts, requests and sessions are maps, so you render
+  the page where the user chooses an account.
+- **Nothing in the background.** Your app is registered at a Mastodon
+  server only when a user first signs in there, and the registration goes
+  to a store that you provide.
+- **Safe by default.** Requests only go to the public internet, with
+  limits on time and size. Every sign-in uses
+  [PKCE](https://oauth.net/2/pkce/) and a
+  [state](https://auth0.com/docs/secure/attack-protection/state-parameters)
+  that is tied to the browser, and client secrets don't show up when
+  printed.
 
-The same code runs on the JVM and in Node. It needs the client secrets of
-your app, so it runs on a server.
+The same code runs on the JVM and in [Node.js](https://nodejs.org/). Since
+it needs the
+[client secrets](https://www.oauth.com/oauth2-servers/client-registration/client-id-secret/)
+of your app, use it on a server rather than in a browser.
 
 > This library was spun out of [indieblog](https://github.com/simongray/indieblog),
-> the software of [simon.grays.blog](https://simon.grays.blog), whose
-> owner signs in to its own IndieAuth server this way, and whose readers
+> the software behind [simon.grays.blog](https://simon.grays.blog). There,
+> the owner signs in to the blog's own
+> [IndieAuth](https://indieweb.org/IndieAuth) server this way, and readers
 > sign in to comment. Like indieblog, it was developed with assistance
 > from frontier LLMs.
 
@@ -52,15 +61,20 @@ dk.simongray/relmeauth-clj
 ```
 
 For ClojureScript, shadow-cljs only reads Git dependencies from
-`deps.edn`, so also set `:deps true` in your `shadow-cljs.edn`. A function
-that fetches gives a promise there.
+`deps.edn`, so also set `:deps true` in your `shadow-cljs.edn`. The
+functions that fetch return promises in ClojureScript.
 
 ### Set up the providers
 
-For GitHub, register an [OAuth app](https://github.com/settings/developers)
-with your redirect URL as its callback URL. For Mastodon, there's nothing
-to register by hand, but you need a store for the registrations. Then
-give both to the library, along with the redirect URL:
+For GitHub,
+[register an OAuth app](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app)
+with your [redirect URL](https://www.oauth.com/oauth2-servers/redirect-uris/)
+as its callback URL. For Mastodon, there's nothing to register by hand,
+since each server gets a
+[registration](https://docs.joinmastodon.org/methods/apps/) of your app
+when a user first signs in there, but you need a store for the
+registrations. Put the GitHub app's client ID and secret, the store and
+the redirect URL in the options:
 
 ```clojure
 (require '[dk.simongray.relmeauth :as relmeauth]
@@ -74,14 +88,16 @@ give both to the library, along with the redirect URL:
                   :client-name   "simon.grays.blog"}})
 ```
 
-The library only offers the providers that you set up. A store is a map
-of two functions, so one for a file or a database takes a few lines, and
-`relmeauth/memory-store` describes them. A registration lasts, so keep it
-where a restart doesn't lose it.
+Only accounts at the providers in the options are offered. A store is a
+map of two functions, so one for a file or a database takes a few lines,
+and the docstring of `relmeauth/memory-store` describes them. Keep the
+registrations where a restart doesn't lose them, or each restart leads to
+new registrations at every server.
 
 ### Sign a user in
 
-Find the accounts that the user's site names with `discover!`:
+Use `discover!` to find the accounts that the user's site links to with
+rel=me:
 
 ```clojure
 (def discovery
@@ -97,11 +113,10 @@ Find the accounts that the user's site names with `discover!`:
 ;;                 :url      "https://indieweb.social/@simongray"}]}
 ```
 
-The accounts come in the order of the rel=me links on the page. When
-there's more than one, let the user choose. Then send the user's browser
-to the provider with the URL of `authorization-request!`, and keep the
-session it gives you where the browser's next request finds it, e.g. in
-your session store:
+The accounts come in the order of the site's rel=me links. When there's
+more than one, let the user choose. Then send the user's browser to the
+provider at the URL of `authorization-request!`, and keep the session
+that it returns until the browser comes back, e.g. in your session store:
 
 ```clojure
 (def request
@@ -112,9 +127,10 @@ your session store:
 ;;     :session {:me "https://simon.grays.blog/" :state "…" :code-verifier "…" …}}
 ```
 
-At a Mastodon server, it registers your app first if the store has no
-registration for it. The browser comes back to the redirect URL with the
-query parameters that `redeem!` takes, along with the session:
+For an account on a Mastodon server, `authorization-request!` also
+registers your app there if the store has no registration yet. When the
+browser comes back to the redirect URL, give `redeem!` the query
+parameters and the session:
 
 ```clojure
 (relmeauth/redeem! (:session request) query-params opts)
@@ -124,38 +140,43 @@ query parameters that `redeem!` takes, along with the session:
 ;;               :url      "https://github.com/simongray"}}
 ```
 
-It checks the state, redeems the code, reads the account that signed in,
-and checks that it's the account the site names and that it links back
-to the site. A failure at any step gives a map of the `:error`, with its
-`:type` and `:reason`, e.g. `::relmeauth/no-link-back`. The access token
-isn't kept. Use the session once.
+It checks the state, redeems the code for an
+[access token](https://oauth.net/2/access-tokens/), and uses the token to
+read the account that signed in. That must be the account that the site
+names, and it must link back to the site. The token isn't kept. A
+failure at any step gives a map of the `:error`, with its `:type` and
+`:reason`, e.g. `::relmeauth/no-link-back`. Use each session only once.
 
 Anyone who can put a rel=me link on the user's page can sign in as the
-user. So if the page shows what others write, e.g. comments, take rel=me
-out of their links.
+user. So if the page shows what others write, e.g. comments, remove
+rel=me from their links.
 
 ### Keep nothing on the server
 
-If you'd rather not keep the session, add a `:secret` to the options, a
-text of 32 bytes or more. The state then carries the session, signed,
-and the session's `:nonce` goes in a cookie, e.g. `HttpOnly` and
-`SameSite=Lax`. At the redirect URL, `state-session` gets the session
-back from the state and the cookie's nonce, so that only the browser that
-started a sign-in can finish it:
+To keep no session on the server, add a `:secret` to the options, a
+string of 32 bytes or more, e.g. from `relmeauth/token`. The state then
+carries the session, signed, and you put the session's
+[nonce](https://developer.mozilla.org/en-US/docs/Glossary/Nonce) in a
+[cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies),
+e.g. one marked `HttpOnly` and `SameSite=Lax`. At the redirect URL,
+`state-session` gets the session back from the state and the cookie's
+nonce, so only the browser that started a sign-in can finish it:
 
 ```clojure
 (relmeauth/state-session secret (get query-params "state") nonce)
 ```
 
-The session also carries the `:data` of the options, any EDN of yours,
-e.g. the page to go back to.
+Any EDN that you give as `:data` in the options comes back in the
+session, e.g. the page to return to.
 
 ### Sign in the owner of an IndieAuth server
 
-A server of [indieauth-clj](https://github.com/simongray/indieauth-clj)
-leaves signing in its user to an `:authorize` function of yours. With
-this library, the owner signs in through their accounts rather than with
-a password, and the request of the IndieAuth client goes along as data:
+An IndieAuth server made with
+[indieauth-clj](https://github.com/simongray/indieauth-clj) calls an
+`:authorize` function of yours to sign in its user. With this library,
+the site's owner can sign in through their accounts instead of with a
+password, and the request of the IndieAuth client travels along as
+`:data`:
 
 ```clojure
 (require '[dk.simongray.indieauth.server :as server]
@@ -178,8 +199,8 @@ a password, and the request of the IndieAuth client goes along as data:
                                      "; Path=/; HttpOnly; Secure; SameSite=Lax")}})))))
 ```
 
-At the redirect URL, once `redeem!` gives the owner's URL, show the
-consent page of the request that comes back:
+At the redirect URL, once `redeem!` returns the owner's URL as the `:me`,
+show the consent page for the request in the session's `:data`:
 
 ```clojure
 (server/consent (server/token-request (:data session) server-opts)
@@ -190,8 +211,9 @@ consent page of the request that comes back:
 Principles
 ----------
 
-- **RelMeAuth first.** The code follows RelMeAuth and the algorithm on
-  the microformats wiki, and cites the RFCs of OAuth for the rest.
+- **RelMeAuth first.** The code follows RelMeAuth and its
+  [algorithm on the microformats wiki](https://microformats.org/wiki/relmeauth),
+  and cites the [RFCs of OAuth](https://oauth.net/specs/) for the rest.
 - **Plain data.** Accounts, sessions and errors are maps, and every
   function that sends takes a `:send` of your own.
 - **One codebase.** The library is written in `.cljc` and depends on
@@ -211,9 +233,9 @@ clojure -M:cljs compile browser-test  # for a browser, from target/browser-test
 ```
 
 The tests reproduce GitHub and a Mastodon server with Ring handlers in
-memory, and on the JVM, a test also signs a user in over HTTP on
-localhost. [doc/real-providers.md](doc/real-providers.md) says how to
-sign in at the real ones by hand.
+memory, and on the JVM, one test also signs a user in over HTTP on
+localhost. To sign in at the real providers by hand, follow
+[doc/real-providers.md](doc/real-providers.md).
 
 License
 -------
