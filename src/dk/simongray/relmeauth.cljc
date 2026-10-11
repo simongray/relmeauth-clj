@@ -751,16 +751,14 @@
   account-problem. A failure at any of them gives a map of the :error,
   with its :type and its :reason. The access token isn't kept. The `opts`
   are those of authorization-request!."
-  ([session params]
-   (redeem! session params {}))
-  ([{:keys [me account] :as session} params opts]
-   (let [opts (merge default-options opts)]
-     (if-let [problem (callback-problem session params)]
-       (async/then nil (constantly {:error problem}))
-       (-> (redeeming-client! session opts)
-           (and-then #(access-token! session % (param params "code") opts))
-           (and-then #(account-info! session (:access-token %) opts))
-           (and-then (fn [info]
-                       (if-let [problem (account-problem session info)]
-                         {:error problem}
-                         {:me me :account account}))))))))
+  [{:keys [me account] :as session} params opts]
+  (let [opts (merge default-options opts)]
+    (if-let [problem (callback-problem session params)]
+      (async/then nil (constantly {:error problem}))
+      (-> (redeeming-client! session opts)
+          (and-then #(access-token! session % (param params "code") opts))
+          (and-then #(account-info! session (:access-token %) opts))
+          (and-then (fn [info]
+                      (if-let [problem (account-problem session info)]
+                        {:error problem}
+                        {:me me :account account})))))))
