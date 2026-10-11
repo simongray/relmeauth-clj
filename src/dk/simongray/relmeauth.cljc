@@ -12,6 +12,7 @@
             [dk.simongray.microformats :as mf]
             [dk.simongray.relmeauth.bytes :as bytes]
             [dk.simongray.relmeauth.json :as json]
+            [dk.simongray.relmeauth.requests :as requests]
             [dk.simongray.relmeauth.signed :as signed]
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
@@ -170,74 +171,6 @@
    :now-fn           #?(:clj  #(java.util.Date.)
                         :cljs #(js/Date.))})
 
-(defn- failure
-  "A map of the :error of `type`, a keyword, with the `reason` and the facts
-  of the map `m`."
-  ([type reason]
-   (failure type reason {}))
-  ([type reason m]
-   {:error (merge {:type type :reason reason} m)}))
-
-(defn- and-then
-  "The result of `f` on the value of `x`, once it has one, unless it's a
-  map of the :error, which stays as it is."
-  [x f]
-  (async/then x (fn [m] (if (:error m) m (f m)))))
-
-(defn- fetch!
-  "The response to a GET of `url` for the media types `accept`, with a body
-  of `max-bytes` at most, by `opts`, or a map of the :error."
-  [url accept max-bytes opts]
-  (async/then (async/attempt
-               #(http/fetch! url (assoc opts :accept accept :max-bytes max-bytes)))
-              (fn [{:keys [value error]}]
-                (cond
-                  error
-                  {:error (http/failure error)}
-
-                  (not (<= 200 (:status value) 299))
-                  (failure ::failed (str url " answered " (:status value))
-                           {:url url :status (:status value)})
-
-                  :else
-                  value))))
-
-(defn- exchange!
-  "The response to the `request`, sent by `opts` without following a
-  redirect, or a map of the :error."
-  [request {:keys [send max-json-bytes] :as opts}]
-  (async/then (http/try-send! send request (assoc opts
-                                                  :max-bytes max-json-bytes
-                                                  :max-redirects 0))
-              (fn [{:keys [value error]}]
-                (or value {:error (http/failure error)}))))
-
-;; RFC 6749, section 5.2. GitHub answers an error with 200 too.
-(defn- json-answer
-  "The map of the JSON object in the `response`, if its status is a
-  success and it holds no error, or a map of the :error of `type`, with
-  the :code of the error that the provider gave."
-  [type {:keys [status body] :as response}]
-  (let [m                                 (json/read-object body)
-        {:keys [error error_description]} m
-        success?                          (and (integer? status)
-                                               (<= 200 status 299))]
-    (cond
-      (and success? m (nil? error))
-      m
-
-      (and success? (nil? m))
-      (failure type "The provider's answer isn't a JSON object"
-               {:status status})
-
-      :else
-      (failure type (if (string? error_description)
-                      error_description
-                      (str "The provider answered "
-                           (if (string? error) error status)))
-               (cond-> {:status status}
-                 (string? error) (assoc :code error))))))
-
 ;;; the providers
 
 (def github-endpoints
@@ -376,19 +309,21 @@
         me           (canonical-url url)
         problem      (cond
                        (not (and me (profile-url-pred me)))
-                       (failure ::invalid-url (str "Not a profile URL: " url)
-                                {:url url})
+                       (requests/failure ::invalid-url
+                                         (str "Not a profile URL: " url)
+                                         {:url url})
 
                        (and (not silo-urls?)
                             (or (github-account me) (mastodon-account me)))
-                       (failure ::silo-url (str "An account at a provider, not"
-                                                " a site of the user's own: " url)
-                                {:url url}))]
+                       (requests/failure ::silo-url
+                                         (str "An account at a provider, not"
+                                              " a site of the user's own: " url)
+                                         {:url url}))]
     (if problem
       (async/then nil (constantly problem))
-      (and-then
-       (fetch! me "text/html, application/xhtml+xml;q=0.9, */*;q=0.1"
-               max-page-bytes opts)
+      (requests/and-then
+       (requests/fetch! me "text/html, application/xhtml+xml;q=0.9, */*;q=0.1"
+                        max-page-bytes opts)
        (fn [{:keys [redirects] :as response}]
          {:me       me
           :urls     (->> (concat [me] (map second redirects) [(:url response)])
@@ -443,23 +378,12 @@
   `opts`: profile when the server's metadata lists it, and else
   read:accounts."
   [instance {:keys [max-json-bytes] :as opts}]
-  (async/then (fetch! (str instance (:metadata mastodon-paths))
+  (async/then (requests/fetch! (str instance (:metadata mastodon-paths))
                       "application/json" max-json-bytes opts)
               (fn [{:keys [body]}]
                 (if (some #{"profile"} (:scopes_supported (json/read-object body)))
                   "profile"
                   "read:accounts"))))
-
-(defn- form-request
-  "The request map that posts the form of `fields`, pairs of a name and a
-  value, to `url` for a JSON answer. The body is a hidden text of
-  wary-fetch, since it can hold a code or a secret."
-  [url fields]
-  {:method  :post
-   :url     url
-   :headers {"Content-Type" "application/x-www-form-urlencoded"
-             "Accept"       "application/json"}
-   :body    (secret/hide (url/query-string fields))})
 
 (defn- instant
   "The instant `seconds` after the epoch."
@@ -472,8 +396,8 @@
   and give the registration, or a map of the :error."
   [instance scope {:keys [mastodon redirect-uri] :as opts}]
   (let [{:keys [client-name website]} mastodon]
-    (and-then
-     (exchange! (form-request (str instance (:apps mastodon-paths))
+    (requests/and-then
+     (requests/exchange! (requests/form-request (str instance (:apps mastodon-paths))
                               [["client_name" (or client-name
                                                   (url/host redirect-uri))]
                                ["redirect_uris" redirect-uri]
@@ -482,13 +406,13 @@
                 opts)
      (fn [response]
        (let [{:keys [client_id client_secret client_secret_expires_at]
-              :as   answer} (json-answer ::registration-error response)]
+              :as   answer} (requests/json-answer ::registration-error response)]
          (cond
            (:error answer)
            (update answer :error assoc :instance instance)
 
            (not (and (string? client_id) (string? client_secret)))
-           (failure ::registration-error "The server gave no client credentials"
+           (requests/failure ::registration-error "The server gave no client credentials"
                     {:instance instance})
 
            :else
@@ -520,7 +444,7 @@
        (or registration
            (-> (scope! instance opts)
                (async/then #(register! instance % opts))
-               (and-then (fn [registration]
+               (requests/and-then (fn [registration]
                            (async/then ((:put! store) instance registration)
                                        (constantly registration))))))))))
 
@@ -629,7 +553,7 @@
                                                                   opts)]
     (when-let [problem (request-problem account opts)]
       (throw (ex-info problem {:account account :redirect-uri redirect-uri})))
-    (and-then
+    (requests/and-then
      (client! account opts)
      (fn [{:keys [client-id scope]}]
        (let [session  (cond-> {:me           me
@@ -694,7 +618,7 @@
   (case (:provider account)
     :github   (:github opts)
     :mastodon (async/then (stored! (:instance account) opts)
-                          #(or % (failure ::not-registered
+                          #(or % (requests/failure ::not-registered
                                           (str "The app has no registration at "
                                                (:instance account))
                                           {:instance (:instance account)})))))
@@ -707,8 +631,8 @@
    {:keys [client-id client-secret] :as client}
    code
    opts]
-  (and-then
-   (exchange! (form-request (endpoint account :token)
+  (requests/and-then
+   (requests/exchange! (requests/form-request (endpoint account :token)
                             [["grant_type" "authorization_code"]
                              ["code" code]
                              ["client_id" client-id]
@@ -717,26 +641,26 @@
                              ["code_verifier" code-verifier]])
               opts)
    (fn [response]
-     (let [{:keys [access_token] :as answer} (json-answer ::token-error response)]
+     (let [{:keys [access_token] :as answer} (requests/json-answer ::token-error response)]
        (cond
          (:error answer)        answer
          (string? access_token) {:access-token (secret/hide access_token)}
-         :else                  (failure ::token-error
+         :else                  (requests/failure ::token-error
                                          "The provider gave no access token"))))))
 
 (defn- account-info!
   "The JSON of the account of the `session` that the `access-token` reads,
   by `opts`, as a map, or a map of the :error."
   [{:keys [account] :as session} access-token opts]
-  (and-then
-   (exchange! {:url     (endpoint account :account)
+  (requests/and-then
+   (requests/exchange! {:url     (endpoint account :account)
                :headers (merge {"Authorization" (http/authorization {:token access-token})}
                                (case (:provider account)
                                  :github   {"Accept"               "application/vnd.github+json"
                                             "X-GitHub-Api-Version" "2022-11-28"}
                                  :mastodon {"Accept" "application/json"}))}
               opts)
-   #(json-answer ::account-error %)))
+   #(requests/json-answer ::account-error %)))
 
 (defn- trimmed
   "The canonical `url` without a slash at the end of its path, unless the
@@ -791,9 +715,9 @@
     (if-let [problem (callback-problem session params)]
       (async/then nil (constantly {:error problem}))
       (-> (redeeming-client! session opts)
-          (and-then #(access-token! session % (param params "code") opts))
-          (and-then #(account-info! session (:access-token %) opts))
-          (and-then (fn [info]
+          (requests/and-then #(access-token! session % (param params "code") opts))
+          (requests/and-then #(account-info! session (:access-token %) opts))
+          (requests/and-then (fn [info]
                       (if-let [problem (account-problem session info opts)]
                         {:error problem}
                         {:me me :account account})))))))
