@@ -4,14 +4,12 @@
  ;; otherwise. wary-fetch sends the requests and has the hashes and JSON of
  ;; both platforms, html-pieces parses a page once, microformats-clj reads
  ;; its rel=me links, and indieauth-clj has the URLs of users and the signed
- ;; states. indieauth-clj is a Git dependency until both libraries are
- ;; released, which build.clj says more of.
+ ;; states.
  :deps  {org.clojure/clojure           {:mvn/version "1.11.4"}
          dk.simongray/wary-fetch       {:mvn/version "0.3.0"}
-         dk.simongray/html-pieces      {:mvn/version "0.4.0"}
+         dk.simongray/html-pieces      {:mvn/version "0.4.1"}
          dk.simongray/microformats-clj {:mvn/version "0.2.0"}
-         dk.simongray/indieauth-clj    {:git/url "https://github.com/simongray/indieauth-clj"
-                                        :git/sha "6cec239839728e1e5e5a8510b9375ecb057b73f9"}}
+         dk.simongray/indieauth-clj    {:mvn/version "0.1.0"}}
 
  :aliases
  {;; clojure -X:test

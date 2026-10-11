@@ -7,10 +7,10 @@
       clojure -T:build deploy    ; to Clojars, with CLOJARS_USERNAME and
                                  ; CLOJARS_PASSWORD (a deploy token) set
 
-  To release, bump the version below and in the README, and commit. Release
-  indieauth-clj first, and give deps.edn its Clojars version in place of
-  the Git SHA, since a pom lists Maven dependencies alone and the jar would
-  come without it. Tag the commit, e.g. as v0.1.0, and push both:
+  To release, bump the version below and in the README, and commit. The
+  dependencies in deps.edn must all come from Maven repositories such as
+  Clojars, since a pom can't list a Git dependency. Tag the commit, e.g. as
+  v0.1.0, and push both:
 
       git tag -a v0.1.0 -m 0.1.0
       git push origin master v0.1.0

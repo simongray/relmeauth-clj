@@ -11,9 +11,8 @@ indieauth-clj
 - **Canonical URLs.** Needed IndieAuth's canonical form of a URL and its
   rules for a profile URL, so that the URL a user signs in as compares
   the same way at an IndieAuth server of indieauth-clj. Did: depend on
-  indieauth-clj for `canonical-url` and `profile-url?`, by Git SHA until
-  the two libraries are released together, since a jar's pom can't list a
-  Git dependency. Nothing is missing.
+  indieauth-clj for `canonical-url` and `profile-url?`. Nothing is
+  missing.
 - **Signed states.** Needed a session signed into the state, with its
   nonce in a cookie, and the PKCE verifier derived from the state, of a
   kind of its own, since a state of RelMeAuth must never pass for one of
