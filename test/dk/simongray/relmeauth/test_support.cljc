@@ -12,6 +12,7 @@
             [dk.simongray.relmeauth.bytes :as bytes]
             [dk.simongray.relmeauth.json :as json]
             [dk.simongray.relmeauth.providers :as providers]
+            [dk.simongray.relmeauth.url :as relmeauth.url]
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
             #?(:clj [dk.simongray.wary-fetch.headers :as headers])
@@ -36,8 +37,8 @@
 (defn ring-request
   "The Ring request of the wary-fetch `request` map."
   [{:keys [method url headers body]}]
-  (let [{:keys [scheme authority path query]} (relmeauth/url-parts url)
-        {:keys [host port]}                     (relmeauth/authority-parts authority)]
+  (let [{:keys [scheme authority path query]} (relmeauth.url/parts url)
+        {:keys [host port]}                     (relmeauth.url/authority-parts authority)]
     {:request-method (or method :get)
      :scheme         (keyword scheme)
      :server-name    host
@@ -63,7 +64,7 @@
 (defn- host-of
   "The host and port of the `url`."
   [url]
-  (:authority (relmeauth/url-parts url)))
+  (:authority (relmeauth.url/parts url)))
 
 (defn- with-cookies
   "The `cookies`, a map of names to values, with those that the Set-Cookie
@@ -426,9 +427,9 @@
      the URLs of the sites of the test."
      [routes f]
      (let [local (into {} (for [[u h] routes
-                                :let  [{:keys [authority path]} (relmeauth/url-parts u)]]
+                                :let  [{:keys [authority path]} (relmeauth.url/parts u)]]
                             [(str "/" authority (if (empty? path) "/" path)) h]))]
        (with-server local
          (fn [base]
            (f (into {} (for [u (keys routes)]
-                         [u (forwarder base (:authority (relmeauth/url-parts u)))]))))))))
+                         [u (forwarder base (:authority (relmeauth.url/parts u)))]))))))))

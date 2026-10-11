@@ -12,7 +12,7 @@ indieauth-clj
   rules for a profile URL, so that the URL a user signs in as compares
   the same way at an IndieAuth server of indieauth-clj. Did instead: a
   copy of `canonical-url`, `profile-url?`, `url-parts` and
-  `authority-parts` in the root namespace. indieauth-clj isn't released,
+  `authority-parts` in `relmeauth.url`. indieauth-clj isn't released,
   and a Git dependency would keep this library off Clojars. Could offer:
   once indieauth-clj is on Clojars, this library could depend on it for
   them, or `url-parts` could move to wary-fetch as the notes of
