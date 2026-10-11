@@ -6,15 +6,16 @@
   site names, and when it links back to the site. The code follows
   https://indieweb.org/RelMeAuth and the algorithm at
   https://microformats.org/wiki/relmeauth. The URLs that a user can sign
-  in as are in dk.simongray.relmeauth.url."
+  in as, and their canonical form, are those of IndieAuth, from
+  indieauth-clj."
   (:require [clojure.string :as str]
             [dk.simongray.html-pieces :as html]
+            [dk.simongray.indieauth :as indieauth]
             [dk.simongray.microformats :as mf]
             [dk.simongray.relmeauth.bytes :as bytes]
             [dk.simongray.relmeauth.providers :as providers]
             [dk.simongray.relmeauth.requests :as requests]
             [dk.simongray.relmeauth.signed :as signed]
-            [dk.simongray.relmeauth.url :as url]
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
             [dk.simongray.wary-fetch.headers :as headers]))
@@ -24,8 +25,8 @@
 (def default-options
   "The default of each option that has one:
 
-  - :profile-url-pred, url/profile-url?, the URLs that a user can sign in
-    as, those that IndieAuth takes
+  - :profile-url-pred, indieauth/profile-url?, the URLs that a user can
+    sign in as, those that IndieAuth takes
   - :silo-urls?, false: refuse a URL that is an account at a provider,
     e.g. https://github.com/ann, since it isn't the user's own
   - :trim-slash?, true: let a link back differ from the user's URL by a
@@ -39,7 +40,7 @@
   - :max-json-bytes, 256 kB: the largest JSON document of a provider
   - :send, http/send-public!, which sends to the public internet alone
   - :now-fn, a function that gives the instant now"
-  {:profile-url-pred url/profile-url?
+  {:profile-url-pred indieauth/profile-url?
    :silo-urls?       false
    :trim-slash?      true
    :session-seconds  600
@@ -115,7 +116,7 @@
   [url opts]
   (let [{:keys [profile-url-pred silo-urls? max-page-bytes]
          :as   opts} (merge default-options opts)
-        me           (url/canonical-url url)
+        me           (indieauth/canonical-url url)
         problem      (cond
                        (not (and me (profile-url-pred me)))
                        (requests/failure ::invalid-url
@@ -135,7 +136,7 @@
        (fn [{:keys [redirects] :as response}]
          {:me       me
           :urls     (->> (concat [me] (map second redirects) [(:url response)])
-                         (keep url/canonical-url)
+                         (keep indieauth/canonical-url)
                          distinct
                          vec)
           :accounts (accounts response opts)})))))
@@ -254,6 +255,14 @@
       (empty? (param params "code"))
       {:type ::no-code :reason "The provider gave no code"})))
 
+(defn ^:no-doc trim-slash
+  "The canonical `url` without a slash at the end of its path, unless the
+  path is /.
+
+      (trim-slash \"https://example.com/me/\") ;; => \"https://example.com/me\""
+  [url]
+  (str/replace url #"^(https?://[^/?#]*/[^?#]*[^/?#])/(?=[?#]|$)" "$1"))
+
 ;; RelMeAuth: the account that signed in is the one that the page names,
 ;; and it links back to the page
 (defn account-problem
@@ -269,8 +278,8 @@
    (let [{:keys [trim-slash?]}       (merge default-options opts)
          {:keys [provider username]} account
          signed-in                   (providers/username provider info)
-         same                        (if trim-slash? url/trim-slash identity)
-         links                       (keep #(some-> (url/canonical-url %) same)
+         same                        (if trim-slash? trim-slash identity)
+         links                       (keep #(some-> (indieauth/canonical-url %) same)
                                            (providers/links provider info))]
      (cond
        (not (and (string? signed-in)

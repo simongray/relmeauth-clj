@@ -218,9 +218,11 @@ Principles
   function that sends takes a `:send` of your own.
 - **One codebase.** The library is written in `.cljc` and depends on
   [wary-fetch](https://github.com/simongray/wary-fetch) for requests,
-  [html-pieces](https://github.com/simongray/html-pieces) for pages and
+  [html-pieces](https://github.com/simongray/html-pieces) for pages,
   [microformats-clj](https://github.com/simongray/microformats-clj) for
-  their rel=me links.
+  their rel=me links and
+  [indieauth-clj](https://github.com/simongray/indieauth-clj) for the
+  URLs that a user can sign in as.
 
 Development
 -----------

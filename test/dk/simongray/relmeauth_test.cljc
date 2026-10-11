@@ -1,41 +1,20 @@
 (ns dk.simongray.relmeauth-test
-  "RelMeAuth: the URLs, the accounts of rel=me links, discovery, the
-  checks of the account that signed in, and signing in at GitHub and at a
-  Mastodon server, with the providers of the test support."
+  "RelMeAuth: the accounts of rel=me links, discovery, the checks of the
+  account that signed in, and signing in at GitHub and at a Mastodon
+  server, with the providers of the test support. The URLs of users are
+  indieauth-clj's, and its tests cover them."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [dk.simongray.relmeauth :as relmeauth]
             [dk.simongray.relmeauth.providers :as providers]
             [dk.simongray.relmeauth.test-support :as t :refer [run]]
-            [dk.simongray.relmeauth.url :as url]
             [dk.simongray.wary-fetch.async :as async]
             [dk.simongray.wary-fetch.secret :as secret]))
 
-(deftest profile-urls
-  (testing "IndieAuth 3.2"
-    (doseq [s ["https://example.com/" "https://example.com/username" "https://example.com/users?id=100"]]
-      (is (url/profile-url? s) s))
-    (doseq [s ["example.com" "mailto:user@example.com" "https://example.com/foo/../bar" "https://example.com/#me"
-               "https://user:pass@example.com/" "https://example.com:8443/" "https://172.28.92.51/"
-               "https://example.com/a/%2E%2e/b" "https://[::1]/" "https://a b.example/" "https:///x" nil]]
-      (is (not (url/profile-url? s)) (pr-str s)))))
-
-(deftest canonical-urls
-  (testing "IndieAuth 3.4"
-    (is (= "https://example.com/" (url/canonical-url "https://example.com")))
-    (is (= "https://example.com/" (url/canonical-url "HTTPS://Example.COM")))
-    (is (= "https://example.com/" (url/canonical-url " example.com ")) "a host alone, as in GitHub's website field")
-    (is (= "http://example.com/" (url/canonical-url "http://example.com:80"))))
-  (testing "nothing else changes, so a path compares as it's written"
-    (is (= "https://example.com/Me/" (url/canonical-url "https://example.com/Me/")))
-    (is (not= (url/canonical-url "https://example.com/me/") (url/canonical-url "https://example.com/me"))))
-  (testing "without the slash at the end of a path"
-    (is (= "https://example.com/me?a#b" (url/trim-slash "https://example.com/me/?a#b")))
-    (is (= "https://example.com/" (url/trim-slash "https://example.com/")) "but the root"))
-  (is (nil? (url/canonical-url "mailto:user@example.com")))
-  (is (nil? (url/canonical-url "/relative")))
-  (is (nil? (url/canonical-url "")))
-  (is (nil? (url/canonical-url nil))))
+(deftest trimmed-urls
+  (is (= "https://example.com/me?a#b" (relmeauth/trim-slash "https://example.com/me/?a#b")))
+  (is (= "https://example.com/me" (relmeauth/trim-slash "https://example.com/me")))
+  (is (= "https://example.com/" (relmeauth/trim-slash "https://example.com/")) "but the root"))
 
 (deftest accounts-of-links
   (testing "a GitHub profile"

@@ -12,7 +12,6 @@
             [dk.simongray.relmeauth.bytes :as bytes]
             [dk.simongray.relmeauth.json :as json]
             [dk.simongray.relmeauth.providers :as providers]
-            [dk.simongray.relmeauth.url :as relmeauth.url]
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
             #?(:clj [dk.simongray.wary-fetch.headers :as headers])
@@ -34,11 +33,24 @@
                  (.catch (fn [e] (is false (str "rejected: " e))))
                  (.finally done)))))
 
+(defn- url-parts
+  "The :scheme, :authority, :host, :port, :path and :query of the `url`, as
+  plain as the URLs of the tests are."
+  [url]
+  (let [[_ scheme authority path query] (re-matches #"([a-z]+)://([^/?#]*)([^?#]*)(?:\?([^#]*))?.*"
+                                                    url)
+        [_ host port]                   (re-matches #"([^:]*)(?::(\d+))?" authority)]
+    {:scheme    scheme
+     :authority authority
+     :host      host
+     :port      port
+     :path      path
+     :query     query}))
+
 (defn ring-request
   "The Ring request of the wary-fetch `request` map."
   [{:keys [method url headers body]}]
-  (let [{:keys [scheme authority path query]} (relmeauth.url/parts url)
-        {:keys [host port]}                     (relmeauth.url/authority-parts authority)]
+  (let [{:keys [scheme host port path query]} (url-parts url)]
     {:request-method (or method :get)
      :scheme         (keyword scheme)
      :server-name    host
@@ -64,7 +76,7 @@
 (defn- host-of
   "The host and port of the `url`."
   [url]
-  (:authority (relmeauth.url/parts url)))
+  (:authority (url-parts url)))
 
 (defn- with-cookies
   "The `cookies`, a map of names to values, with those that the Set-Cookie
@@ -417,9 +429,9 @@
      the URLs of the sites of the test."
      [routes f]
      (let [local (into {} (for [[u h] routes
-                                :let  [{:keys [authority path]} (relmeauth.url/parts u)]]
+                                :let  [{:keys [authority path]} (url-parts u)]]
                             [(str "/" authority (if (empty? path) "/" path)) h]))]
        (with-server local
          (fn [base]
            (f (into {} (for [u (keys routes)]
-                         [u (forwarder base (:authority (relmeauth.url/parts u)))]))))))))
+                         [u (forwarder base (:authority (url-parts u)))]))))))))

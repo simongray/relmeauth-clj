@@ -10,17 +10,16 @@ indieauth-clj
 
 - **Canonical URLs.** Needed IndieAuth's canonical form of a URL and its
   rules for a profile URL, so that the URL a user signs in as compares
-  the same way at an IndieAuth server of indieauth-clj. Did instead: a
-  copy of `canonical-url`, `profile-url?`, `url-parts` and
-  `authority-parts` in `relmeauth.url`. indieauth-clj isn't released,
-  and a Git dependency would keep this library off Clojars. Could offer:
-  once indieauth-clj is on Clojars, this library could depend on it for
-  them, or `url-parts` could move to wary-fetch as the notes of
-  indieauth-clj propose.
+  the same way at an IndieAuth server of indieauth-clj. Did: depend on
+  indieauth-clj for `canonical-url` and `profile-url?`, by Git SHA until
+  the two libraries are released together, since a jar's pom can't list a
+  Git dependency. Nothing is missing.
 - **Signed states.** Needed a session signed into the state, with its
   nonce in a cookie, and the PKCE verifier derived from the state. Did
   instead: copies of `bytes.cljc` and `signed.cljc`, and a
-  `state-session` with the same arguments as indieauth-clj's.
+  `state-session` with the same arguments as indieauth-clj's. Could
+  offer: `dk.simongray.indieauth.signed` is public now, so the copy of
+  `signed.cljc` could go.
 - **The request of an IndieAuth server.** `request-token` and
   `token-request` were all it took to carry the request through a sign-in
   with RelMeAuth, as the `:data` of the state. Nothing is missing.
