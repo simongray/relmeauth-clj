@@ -85,15 +85,6 @@
   [href]
   (or (github-account href) (mastodon-account href)))
 
-(defn- hrefs
-  "The hrefs of the a elements in the HTML `s`."
-  [s]
-  (for [node  (mapcat #(tree-seq vector? (partial drop 2) %) (html/parse (str s)))
-        :when (and (vector? node) (= :a (first node)))
-        :let  [href (:href (second node))]
-        :when href]
-    href))
-
 (defn links
   "The URLs that the `info` of an account of `provider` links to as the
   account's website: GitHub's website field, or the links in a Mastodon
@@ -102,7 +93,9 @@
   [provider info]
   (case provider
     :github   [(:blog info)]
-    :mastodon (mapcat hrefs (cons (:note info) (map :value (:fields info))))))
+    :mastodon (for [s                  (cons (:note info) (map :value (:fields info)))
+                    [_ {:keys [href]}] (html/links (str s) {:link-tags #{:a}})]
+                href)))
 
 (defn username
   "The username of the account of `provider` in its `info`."

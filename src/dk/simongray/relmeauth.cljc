@@ -86,7 +86,7 @@
   at the providers that `opts` set up: GitHub with :github and Mastodon
   servers with :mastodon. They come in the order of the page, once each."
   [response opts]
-  (->> (get-in (mf/parse (page-nodes response) (:url response)) [:rels "me"])
+  (->> (get-in (mf/rels (page-nodes response) (:url response)) [:rels "me"])
        (keep providers/account)
        (filter #(contains? opts (:provider %)))
        distinct
