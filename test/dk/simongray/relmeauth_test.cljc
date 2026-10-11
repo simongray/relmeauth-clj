@@ -322,6 +322,13 @@
                         (is (= 3 (apps w)) "a new registration for another redirect URL")))
          #(async/then (request! w :mastodon {})
                       (fn [{:keys [url session]}]
+                        (-> (t/authorize! (:send w) url)
+                            (async/then (fn [params]
+                                          (relmeauth/redeem! session params (dissoc (:opts w) :redirect-uri))))
+                            (async/then (fn [r]
+                                          (is (:me r) "redeemed by the redirect URL of the session, without one in the options"))))))
+         #(async/then (request! w :mastodon {})
+                      (fn [{:keys [url session]}]
                         (async/then (t/authorize! (:send w) url)
                                     (fn [params]
                                       (async/then (relmeauth/redeem! session params (assoc-in (:opts w) [:mastodon :registrations]

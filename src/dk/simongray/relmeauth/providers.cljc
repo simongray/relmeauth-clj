@@ -226,11 +226,13 @@
 (defn redeeming-client!
   "The client that redeems the code of the `session`, by `opts` over the
   defaults: the :github of `opts`, or the stored registration at the
-  Mastodon server, or a map of the :error."
-  [{:keys [account] :as session} opts]
+  Mastodon server for the session's redirect URL, which the code was
+  given for, or a map of the :error."
+  [{:keys [account redirect-uri] :as session} opts]
   (case (:provider account)
     :github   (:github opts)
-    :mastodon (async/then (stored! (:instance account) opts)
+    :mastodon (async/then (stored! (:instance account)
+                                   (assoc opts :redirect-uri redirect-uri))
                           #(or % (requests/failure ::relmeauth/not-registered
                                                    (str "The app has no registration at "
                                                         (:instance account))
