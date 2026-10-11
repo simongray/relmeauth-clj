@@ -141,6 +141,10 @@
 
   - :profile-url-pred, profile-url?, the URLs that a user can sign in as,
     those that IndieAuth takes
+  - :trim-slash?, true: a slash at the end of a path doesn't count when an
+    account's links are compared with the user's URLs, so that a link to
+    https://example.com/me links back to https://example.com/me/. The :me
+    keeps its slash.
   - :session-seconds, 600: how long a user has to sign in at the provider,
     and how long a signed state lasts
   - :timeout-seconds, 10: the limit of each request
@@ -151,6 +155,7 @@
   - :send, http/send-public!, which sends to the public internet alone
   - :now-fn, a function that gives the instant now"
   {:profile-url-pred profile-url?
+   :trim-slash?      true
    :session-seconds  600
    :timeout-seconds  10
    :max-redirects    5
@@ -716,29 +721,42 @@
               opts)
    #(json-answer ::account-error %)))
 
+(defn- trimmed
+  "The canonical `url` without a slash at the end of its path, unless the
+  path is /."
+  [url]
+  (str/replace url #"^(https?://[^/?#]*/[^?#]*[^/?#])/(?=[?#]|$)" "$1"))
+
 ;; RelMeAuth: the account that signed in is the one that the page names,
 ;; and it links back to the page
 (defn account-problem
   "What's wrong with the `info` of the account that signed in, for the
-  `session`, as a map of the :type and the :reason, or nil.
+  `session`, by the :trim-slash? of `opts`, as a map of the :type and the
+  :reason, or nil.
 
   The info is the JSON of the provider's API, as a map. The account must
   be the one of the session, by its username in any case, and one of its
   account-links must be one of the :urls of the session, in canonical
   form."
-  [{:keys [me urls account] :as session} info]
-  (let [{:keys [provider username]} account
-        signed-in                   (signed-in-username provider info)]
-    (cond
-      (not (and (string? signed-in)
-                (= (str/lower-case username) (str/lower-case signed-in))))
-      {:type   ::wrong-account
-       :reason (str "The user signed in as " (pr-str signed-in) ", not as "
-                    username)}
+  ([session info]
+   (account-problem session info {}))
+  ([{:keys [me urls account] :as session} info opts]
+   (let [{:keys [trim-slash?]}       (merge default-options opts)
+         {:keys [provider username]} account
+         signed-in                   (signed-in-username provider info)
+         same                        (if trim-slash? trimmed identity)
+         links                       (keep #(some-> (canonical-url %) same)
+                                           (account-links provider info))]
+     (cond
+       (not (and (string? signed-in)
+                 (= (str/lower-case username) (str/lower-case signed-in))))
+       {:type   ::wrong-account
+        :reason (str "The user signed in as " (pr-str signed-in) ", not as "
+                     username)}
 
-      (not-any? (set urls) (keep canonical-url (account-links provider info)))
-      {:type   ::no-link-back
-       :reason (str (:url account) " doesn't link back to " me)})))
+       (not-any? (set (map same urls)) links)
+       {:type   ::no-link-back
+        :reason (str (:url account) " doesn't link back to " me)}))))
 
 (defn redeem!
   "Finish signing in when the user's browser comes back with the query
@@ -759,6 +777,6 @@
           (and-then #(access-token! session % (param params "code") opts))
           (and-then #(account-info! session (:access-token %) opts))
           (and-then (fn [info]
-                      (if-let [problem (account-problem session info)]
+                      (if-let [problem (account-problem session info opts)]
                         {:error problem}
                         {:me me :account account})))))))

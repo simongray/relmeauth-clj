@@ -27,7 +27,9 @@ indieauth-clj
 
 indieblog's canonical form trimmed a slash at the end of a path, so
 `https://example.com/me/` and `https://example.com/me` were one URL. This
-library follows IndieAuth, where they're two.
+library keeps the `:me` in IndieAuth's form, where they're two, and
+trims the slash only to compare an account's links, unless
+`:trim-slash?` is false.
 
 wary-fetch
 ----------

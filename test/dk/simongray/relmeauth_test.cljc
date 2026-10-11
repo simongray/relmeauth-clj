@@ -176,6 +176,14 @@
       (is (nil? (relmeauth/account-problem session ann-at-github)) "and the username in any case")
       (is (nil? (relmeauth/account-problem session (assoc ann-at-github :blog "https://User.Example"))))
       (is (nil? (relmeauth/account-problem session (assoc ann-at-github :blog "www.user.example"))) "a URL discovery went through"))
+    (testing "a slash at the end of a path, unless :trim-slash? is false"
+      (let [ann (assoc session :me "https://user.example/ann/" :urls ["https://user.example/ann/"])]
+        (is (nil? (relmeauth/account-problem ann (assoc ann-at-github :blog "user.example/ann"))))
+        (is (nil? (relmeauth/account-problem ann (assoc ann-at-github :blog "user.example/ann/"))))
+        (is (= ::relmeauth/no-link-back
+               (:type (relmeauth/account-problem ann (assoc ann-at-github :blog "user.example/ann") {:trim-slash? false}))))
+        (is (= ::relmeauth/no-link-back
+               (:type (relmeauth/account-problem ann (assoc ann-at-github :blog "user.example/ann/x")))))))
     (testing "no link back"
       (doseq [blog ["" nil "https://elsewhere.example/" "http://user.example/" "https://user.example/blog"]]
         (is (= ::relmeauth/no-link-back (:type (relmeauth/account-problem session (assoc ann-at-github :blog blog)))) (pr-str blog))))
