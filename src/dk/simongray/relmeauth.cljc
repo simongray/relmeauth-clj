@@ -2,11 +2,11 @@
   "RelMeAuth: signing a user in as their website, with an account at GitHub
   or on a Mastodon server that the site names with rel=me.
 
-  The user signs in at the account with OAuth, and the sign-in counts when
-  it's the account that the site names, and when the account links back to
-  the site: in GitHub's website field, or in a Mastodon bio or profile
-  field. The code follows https://indieweb.org/RelMeAuth and the algorithm
-  at https://microformats.org/wiki/relmeauth."
+  A sign-in counts when the account that signed in is the one that the
+  site names, and when it links back to the site. The code follows
+  https://indieweb.org/RelMeAuth and the algorithm at
+  https://microformats.org/wiki/relmeauth. The URLs that a user can sign
+  in as are in dk.simongray.relmeauth.url."
   (:require [clojure.string :as str]
             [dk.simongray.html-pieces :as html]
             [dk.simongray.microformats :as mf]
@@ -24,16 +24,12 @@
 (def default-options
   "The default of each option that has one:
 
-  - :profile-url-pred, url/profile-url?, the URLs that a user can sign in as,
-    those that IndieAuth takes
-  - :silo-urls?, false: a user can't sign in as an account at a provider,
-    e.g. https://github.com/ann, since the URL isn't the user's own, as
-    the algorithm on the microformats wiki has it. The provider can give
-    the username to someone else.
-  - :trim-slash?, true: a slash at the end of a path doesn't count when an
-    account's links are compared with the user's URLs, so that a link to
-    https://example.com/me links back to https://example.com/me/. The :me
-    keeps its slash.
+  - :profile-url-pred, url/profile-url?, the URLs that a user can sign in
+    as, those that IndieAuth takes
+  - :silo-urls?, false: refuse a URL that is an account at a provider,
+    e.g. https://github.com/ann, since it isn't the user's own
+  - :trim-slash?, true: let a link back differ from the user's URL by a
+    slash at the end of its path
   - :session-seconds, 600: how long a user has to sign in at the provider,
     and how long a signed state lasts
   - :timeout-seconds, 10: the limit of each request
@@ -66,18 +62,14 @@
 
 (defn memory-store
   "A store of registrations in the atom `a`, or in a new one, as a map of
-  each instance to its registration.
+  the :instance of each Mastodon server to your app's registration there.
 
-  A store is a map of functions, which can give their results as promises
-  in ClojureScript:
-
-  - :get, a function of an instance that gives its registration, or nil
-  - :put!, a function of an instance and its registration that keeps it
-
-  A registration is a map of the :client-id, the :client-secret, the
-  :scope and the :redirect-uri, and it can have :expires, the instant when
-  the server stops taking it. The client secret is a hidden text of
-  wary-fetch, so a store that writes EDN reveals it with secret/reveal."
+  A store is a map of :get, a function of an instance that gives its
+  registration or nil, and :put!, a function of an instance and a
+  registration that keeps it. Either can give a promise in ClojureScript.
+  A registration is a map of the :client-id, :client-secret, :scope,
+  :redirect-uri and, if it expires, :expires. Its client secret is a hidden
+  text of wary-fetch, so reveal it to write it as EDN."
   ([]
    (memory-store (atom {})))
   ([a]
@@ -100,10 +92,7 @@
 (defn accounts
   "The accounts that the rel=me links of the page in the `response` name,
   at the providers that `opts` set up: GitHub with :github and Mastodon
-  servers with :mastodon. They come in the order of the page, once each.
-
-  A relative link counts from the URL of the response, or from the base
-  of the page."
+  servers with :mastodon. They come in the order of the page, once each."
   [response opts]
   (->> (get-in (mf/parse (page-nodes response) (:url response)) [:rels "me"])
        (keep providers/account)
@@ -168,26 +157,18 @@
   to, and the session to keep until the browser comes back, as a map of
   :url and :session, for the `discovery` of discover!, by `opts`:
 
-  - :redirect-uri, the URL that the browser comes back to, which your
-    GitHub OAuth app lists
+  - :redirect-uri, the URL that the browser comes back to
   - :github, the :client-id and :client-secret of your GitHub OAuth app,
     the secret as a hidden text of wary-fetch
-  - :mastodon, a map of the :registrations store, e.g. memory-store, and
-    the :client-name to show the user, the domain of the redirect URL by
-    default, and the :website of your app
-  - :secret, a text of 32 bytes or more, e.g. a token, to sign the session
-    into the state, so that state-session gets it back from the state
-  - :data, any EDN that the session carries for you, e.g. the request of
-    an IndieAuth server that the user signs in for
-  - :now-fn, as default-options has it
+  - :mastodon, the :registrations store, e.g. memory-store, and the
+    :client-name and :website that a server shows of your app
+  - :secret, a text of 32 bytes or more, to carry the session in the
+    state, signed, for state-session
+  - :data, any EDN of yours that the session carries
 
-  Keep the session where the browser's next request finds it, e.g. in a
-  session store, since it holds the PKCE code verifier and the state that
-  ties the answer to this browser. With a :secret, keep its :nonce in a
-  cookie instead, and give it to state-session with the state. At a
-  Mastodon server, it registers your app first, if the store has no
-  registration, and a server that refuses gives a map of the :error. In
-  ClojureScript, it gives a promise."
+  Keep the session for the browser's next request, or with a :secret, its
+  :nonce in a cookie. A Mastodon server that refuses to register your app
+  gives a map of the :error. In ClojureScript, it gives a promise."
   [{:keys [me urls] :as discovery} account opts]
   (let [{:keys [redirect-uri secret data now-fn] :as opts} (merge default-options
                                                                   opts)]
@@ -252,10 +233,9 @@
   "What's wrong with the query `params` that the browser came back with,
   for the `session`, as a map of the :type and the :reason, or nil.
 
-  The params are a map by name, with texts or keywords as keys. The state
-  must be the session's. An answer of the provider with an error, e.g.
-  access_denied when the user said no, is a problem of the type
-  ::authorization-error, with the :code that the provider gave."
+  The state must be the session's. An error of the provider, e.g.
+  access_denied when the user said no, is an ::authorization-error with
+  the provider's :code."
   [{:keys [state] :as session} params]
   (let [given (param params "state")
         error (param params "error")]
@@ -277,14 +257,12 @@
 ;; RelMeAuth: the account that signed in is the one that the page names,
 ;; and it links back to the page
 (defn account-problem
-  "What's wrong with the `info` of the account that signed in, for the
-  `session`, by the :trim-slash? of `opts`, as a map of the :type and the
-  :reason, or nil.
+  "What's wrong with the `info` of the account that signed in, the JSON of
+  the provider's API, for the `session` and by `opts`, as a map of the
+  :type and the :reason, or nil.
 
-  The info is the JSON of the provider's API, as a map. The account must
-  be the one of the session, by its username in any case, and one of its
-  account-links must be one of the :urls of the session, in canonical
-  form."
+  The account must be the session's, by its username in any case, and it
+  must link back to one of the session's :urls."
   ([session info]
    (account-problem session info {}))
   ([{:keys [me urls account] :as session} info opts]
@@ -307,15 +285,13 @@
 
 (defn redeem!
   "Finish signing in when the user's browser comes back with the query
-  `params`, for the `session` that authorization-request! gave, with
-  `opts`, and give a map of the :me and the :account that the user signed
-  in with. In ClojureScript, it gives a promise.
+  `params`, for the `session` of authorization-request!, by `opts`, and
+  give a map of the :me and the :account that signed in. In
+  ClojureScript, it gives a promise.
 
-  It checks the params with callback-problem, redeems the code for an
-  access token, reads the account with it, and checks the account with
-  account-problem. A failure at any of them gives a map of the :error,
-  with its :type and its :reason. The access token isn't kept. The `opts`
-  are those of authorization-request!."
+  The params must pass callback-problem, and the account account-problem.
+  A failure gives a map of the :error. The :me keeps any slash at its end,
+  and the access token isn't kept."
   [{:keys [me account] :as session} params opts]
   (let [opts (merge default-options opts)]
     (if-let [problem (callback-problem session params)]

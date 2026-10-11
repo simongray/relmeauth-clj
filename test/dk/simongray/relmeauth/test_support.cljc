@@ -175,11 +175,9 @@
 ;; says yes, codes that work once, PKCE and bearer tokens.
 
 (defn- authorize
-  "A Ring handler of the authorization endpoint of a provider with the
-  atom `provider`, which sends the browser back to the client with a code
-  for the user who is signed in, or with access_denied when the user says
-  no. The `client-problem` is a function of the client's request that
-  gives what's wrong with it, or nil."
+  "A Ring handler of the authorization endpoint of the `provider`, an atom,
+  that sends the browser back with a code, or with access_denied when the
+  user says no, unless `client-problem` of the request gives a problem."
   [provider client-problem]
   (fn [{:keys [query-string] :as request}]
     (let [{:strs [client_id redirect_uri state code_challenge code_challenge_method]
@@ -235,13 +233,9 @@
 ;;; GitHub
 
 (defn github
-  "The routes of GitHub with the `apps`, a map of client id to client
-  secret, and the `accounts`, a map of username to the JSON of each, and
-  the atom of its state, as a pair.
-
-  The state holds the user who is :signed-in at GitHub, and :deny? when
-  the user says no. GitHub answers an error of its token endpoint with 200,
-  as it does."
+  "The routes of GitHub with the `apps`, client ids to secrets, and the
+  `accounts`, usernames to their JSON, and the atom of its state, with the
+  user who is :signed-in and :deny?, as a pair."
   [apps accounts]
   (let [provider (atom {:signed-in (key (first accounts))})]
     [{(:authorize providers/github-endpoints)
@@ -265,13 +259,9 @@
 
 (defn mastodon
   "The routes of a Mastodon server at the `instance` with the `accounts`,
-  a map of username to the JSON of each, and the atom of its state, as a
-  pair.
-
-  The state holds the user who is :signed-in, :deny? when the user says
-  no, and the :apps that are registered. The `opts` are :profile-scope?,
-  for a server of Mastodon 4.3 or later, which lists the profile scope in
-  its metadata, and :refuse? for a server that refuses to register apps."
+  usernames to their JSON, and the atom of its state, with the user who is
+  :signed-in, :deny? and the :apps, as a pair. The `opts` are
+  :profile-scope?, for Mastodon 4.3 or later, and :refuse? to register."
   [instance accounts {:keys [profile-scope? refuse?] :as opts}]
   (let [provider (atom {:signed-in (key (first accounts)) :apps {}})
         scopes   (cond-> #{"read" "read:accounts"} profile-scope? (conj "profile"))
