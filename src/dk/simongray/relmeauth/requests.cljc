@@ -2,7 +2,8 @@
   "The requests to the user's site and to the providers, and their
   answers. A request that fails gives a map of the :error, with its :type
   and :reason, rather than throwing, and and-then passes it on."
-  (:require [dk.simongray.relmeauth.json :as json]
+  (:require [dk.simongray.relmeauth :as-alias relmeauth]
+            [dk.simongray.relmeauth.json :as json]
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
             [dk.simongray.wary-fetch.secret :as secret]
@@ -34,8 +35,7 @@
                   {:error (http/failure error)}
 
                   (not (<= 200 (:status value) 299))
-                  (failure :dk.simongray.relmeauth/failed
-                           (str url " answered " (:status value))
+                  (failure ::relmeauth/failed (str url " answered " (:status value))
                            {:url url :status (:status value)})
 
                   :else

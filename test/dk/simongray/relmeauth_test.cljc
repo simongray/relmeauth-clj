@@ -5,6 +5,7 @@
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [dk.simongray.relmeauth :as relmeauth]
+            [dk.simongray.relmeauth.providers :as providers]
             [dk.simongray.relmeauth.test-support :as t :refer [run]]
             [dk.simongray.wary-fetch.async :as async]
             [dk.simongray.wary-fetch.secret :as secret]))
@@ -35,20 +36,20 @@
 (deftest accounts-of-links
   (testing "a GitHub profile"
     (is (= {:provider :github :username "JaneDoe" :url "https://github.com/JaneDoe"}
-           (relmeauth/github-account "https://github.com/JaneDoe")))
-    (is (= "janedoe" (:username (relmeauth/github-account "http://www.github.com/janedoe/")))))
+           (providers/github-account "https://github.com/JaneDoe")))
+    (is (= "janedoe" (:username (providers/github-account "http://www.github.com/janedoe/")))))
   (testing "other GitHub pages"
     (doseq [href ["https://github.com/janedoe/some-repo" "https://github.com/" "https://github.com/janedoe?tab=repositories"
                   "https://gist.github.com/janedoe" "https://github.com.evil.example/janedoe"]]
-      (is (nil? (relmeauth/github-account href)) href)))
+      (is (nil? (providers/github-account href)) href)))
   (testing "a profile on a Mastodon server, which is on https"
     (is (= {:provider :mastodon :instance "https://indieweb.social" :username "simongray"
             :url "https://indieweb.social/@simongray"}
-           (relmeauth/mastodon-account "http://IndieWeb.Social/@simongray/"))))
+           (providers/mastodon-account "http://IndieWeb.Social/@simongray/"))))
   (testing "other pages"
     (doseq [href ["https://example.com/@a/b" "https://example.com/users/a" "https://indieweb.social/@ann@other.example"
                   "https://user@example.com/@ann" "https://github.com/simongray" "/@ann"]]
-      (is (nil? (relmeauth/mastodon-account href)) href))))
+      (is (nil? (providers/mastodon-account href)) href))))
 
 (def page
   "A page that names accounts with rel=me, and links that don't."

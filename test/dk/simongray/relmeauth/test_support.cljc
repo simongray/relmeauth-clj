@@ -11,6 +11,7 @@
             [dk.simongray.relmeauth :as relmeauth]
             [dk.simongray.relmeauth.bytes :as bytes]
             [dk.simongray.relmeauth.json :as json]
+            [dk.simongray.relmeauth.providers :as providers]
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
             #?(:clj [dk.simongray.wary-fetch.headers :as headers])
@@ -242,17 +243,17 @@
   as it does."
   [apps accounts]
   (let [provider (atom {:signed-in (key (first accounts))})]
-    [{(:authorize relmeauth/github-endpoints)
+    [{(:authorize providers/github-endpoints)
       (authorize provider (fn [{:strs [client_id]}]
                             (when-not (contains? apps client_id)
                               "The client_id is unknown")))
 
-      (:token relmeauth/github-endpoints)
+      (:token providers/github-endpoints)
       (fn [request]
         (let [fields (form request)]
           (json-response (token-answer provider fields (get apps (get fields "client_id"))))))
 
-      (:account relmeauth/github-endpoints)
+      (:account providers/github-endpoints)
       (fn [request]
         (if (= "2022-11-28" (get-in request [:headers "x-github-api-version"]))
           (account-response provider accounts request)
@@ -273,7 +274,7 @@
   [instance accounts {:keys [profile-scope? refuse?] :as opts}]
   (let [provider (atom {:signed-in (key (first accounts)) :apps {}})
         scopes   (cond-> #{"read" "read:accounts"} profile-scope? (conj "profile"))
-        path     #(str instance (get relmeauth/mastodon-paths %))]
+        path     #(str instance (get providers/mastodon-paths %))]
     [(cond->
       {(path :apps)
        (fn [request]
