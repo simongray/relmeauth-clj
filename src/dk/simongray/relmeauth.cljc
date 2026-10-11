@@ -202,23 +202,31 @@
               (fn [{:keys [value error]}]
                 (or value {:error (http/failure error)}))))
 
+;; RFC 6749, section 5.2. GitHub answers an error with 200 too.
 (defn- json-answer
   "The map of the JSON object in the `response`, if its status is a
-  success, or a map of the :error of `type`."
+  success and it holds no error, or a map of the :error of `type`, with
+  the :code of the error that the provider gave."
   [type {:keys [status body] :as response}]
-  (let [m (json/read-object body)]
+  (let [m                                 (json/read-object body)
+        {:keys [error error_description]} m
+        success?                          (and (integer? status)
+                                               (<= 200 status 299))]
     (cond
-      (not (and (integer? status) (<= 200 status 299)))
-      (failure type (str "The provider answered " status)
-               (cond-> {:status status}
-                 (string? (:error m)) (assoc :code (:error m))))
+      (and success? m (nil? error))
+      m
 
-      (nil? m)
+      (and success? (nil? m))
       (failure type "The provider's answer isn't a JSON object"
                {:status status})
 
       :else
-      m)))
+      (failure type (if (string? error_description)
+                      error_description
+                      (str "The provider answered "
+                           (if (string? error) error status)))
+               (cond-> {:status status}
+                 (string? error) (assoc :code error))))))
 
 ;;; the providers
 
@@ -687,21 +695,12 @@
                              ["code_verifier" code-verifier]])
               opts)
    (fn [response]
-     ;; GitHub answers an error with 200 too
-     (let [{:keys [access_token error error_description]
-            :as   answer} (json-answer ::token-error response)]
+     (let [{:keys [access_token] :as answer} (json-answer ::token-error response)]
        (cond
-         (:error answer)
-         answer
-
-         (string? error)
-         (failure ::token-error (or error_description error) {:code error})
-
-         (string? access_token)
-         {:access-token (secret/hide access_token)}
-
-         :else
-         (failure ::token-error "The provider gave no access token"))))))
+         (:error answer)        answer
+         (string? access_token) {:access-token (secret/hide access_token)}
+         :else                  (failure ::token-error
+                                         "The provider gave no access token"))))))
 
 (defn- account-info!
   "The JSON of the account of the `session` that the `access-token` reads,
