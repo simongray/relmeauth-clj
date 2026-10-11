@@ -11,7 +11,7 @@
          dk.simongray/html-pieces      {:mvn/version "0.3.0"}
          dk.simongray/microformats-clj {:mvn/version "0.1.0"}
          dk.simongray/indieauth-clj    {:git/url "https://github.com/simongray/indieauth-clj"
-                                        :git/sha "952319cb4b92502f470b3a4d5abe7080e1d88212"}}
+                                        :git/sha "6cec239839728e1e5e5a8510b9375ecb057b73f9"}}
 
  :aliases
  {;; clojure -X:test

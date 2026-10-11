@@ -6,6 +6,7 @@
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [dk.simongray.indieauth :as indieauth]
+            [dk.simongray.indieauth.state :as state]
             [dk.simongray.relmeauth :as relmeauth]
             [dk.simongray.relmeauth.providers :as providers]
             [dk.simongray.relmeauth.test-support :as t :refer [run]]
@@ -335,6 +336,12 @@
                             (is (nil? (relmeauth/state-session secret-text state nonce
                                                                {:now-fn (fn [] (seconds-later 601))}))
                                 "an old one"))
+                          (testing "a state of IndieAuth under the same secret, and the other way round"
+                            (let [{indieauth-state :state indieauth-nonce :nonce}
+                                  (state/fresh secret-text :dk.simongray.indieauth/session {:me "https://user.example/"}
+                                               (seconds-later 0))]
+                              (is (nil? (relmeauth/state-session secret-text indieauth-state indieauth-nonce)))
+                              (is (nil? (indieauth/state-session secret-text state nonce)))))
                           (-> (t/authorize! (:send w) url)
                               (async/then (fn [params]
                                             (relmeauth/redeem! (relmeauth/state-session secret-text (get params "state") nonce)

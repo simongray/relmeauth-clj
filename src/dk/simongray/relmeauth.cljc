@@ -12,7 +12,7 @@
             [dk.simongray.html-pieces :as html]
             [dk.simongray.indieauth :as indieauth]
             [dk.simongray.indieauth.bytes :as bytes]
-            [dk.simongray.indieauth.signed :as signed]
+            [dk.simongray.indieauth.state :as state]
             [dk.simongray.microformats :as mf]
             [dk.simongray.relmeauth.providers :as providers]
             [dk.simongray.relmeauth.requests :as requests]
@@ -164,23 +164,14 @@
     (requests/and-then
      (providers/client! account opts)
      (fn [{:keys [client-id scope]}]
-       (let [session  (cond-> {:me           me
-                               :urls         urls
-                               :account      account
-                               :redirect-uri redirect-uri}
-                        scope        (assoc :scope scope)
-                        (some? data) (assoc :data data))
-             nonce    (when secret (indieauth/token))
-             state    (if secret
-                        (signed/sign secret session-kind
-                                     (assoc session :nonce (bytes/hash-text nonce))
-                                     (now-fn))
-                        (indieauth/token))
-             verifier (if secret
-                        (signed/derive-text secret "code_verifier" state)
-                        (indieauth/token))
-             session  (cond-> (assoc session :state state :code-verifier verifier)
-                        nonce (assoc :nonce nonce))]
+       (let [session (cond-> {:me           me
+                              :urls         urls
+                              :account      account
+                              :redirect-uri redirect-uri}
+                       scope        (assoc :scope scope)
+                       (some? data) (assoc :data data))
+             session (merge session
+                            (state/fresh secret session-kind session (now-fn)))]
          {:url     (providers/authorization-url session client-id)
           :session session})))))
 
@@ -195,15 +186,8 @@
   ([secret state nonce]
    (state-session secret state nonce {}))
   ([secret state nonce opts]
-   (let [{:keys [session-seconds now-fn]} (merge default-options opts)
-         m (signed/unsign secret session-kind state (now-fn) session-seconds)]
-     (when (and m
-                (string? nonce)
-                (bytes/same-text? (bytes/hash-text nonce) (:nonce m)))
-       (assoc m
-              :nonce         nonce
-              :state         state
-              :code-verifier (signed/derive-text secret "code_verifier" state))))))
+   (let [{:keys [session-seconds now-fn]} (merge default-options opts)]
+     (state/session secret session-kind state nonce (now-fn) session-seconds))))
 
 ;;; the callback
 

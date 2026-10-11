@@ -15,12 +15,11 @@ indieauth-clj
   the two libraries are released together, since a jar's pom can't list a
   Git dependency. Nothing is missing.
 - **Signed states.** Needed a session signed into the state, with its
-  nonce in a cookie, and the PKCE verifier derived from the state. Did:
-  use `dk.simongray.indieauth.signed`, and a `state-session` with the
-  same arguments as indieauth-clj's. Its internal `state` namespace does
-  the same, but signs with indieauth-clj's own kind of state, and a state
-  of RelMeAuth must never pass for one of IndieAuth. Could offer: `state`
-  with a kind of the caller's.
+  nonce in a cookie, and the PKCE verifier derived from the state, of a
+  kind of its own, since a state of RelMeAuth must never pass for one of
+  IndieAuth under a shared secret. Did: use `dk.simongray.indieauth.state`,
+  which takes the kind from its caller, and a `state-session` with the
+  same arguments as indieauth-clj's. Nothing is missing.
 - **The request of an IndieAuth server.** `request-token` and
   `token-request` were all it took to carry the request through a sign-in
   with RelMeAuth, as the `:data` of the state. Nothing is missing.
