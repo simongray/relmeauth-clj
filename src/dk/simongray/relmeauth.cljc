@@ -17,7 +17,7 @@
             [dk.simongray.relmeauth.requests :as requests]
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
-            [dk.simongray.wary-fetch.bytes :as bytes]
+            [dk.simongray.webcrypto.bytes :as bytes]
             [dk.simongray.whatwg-mime :as mime]))
 
 ;;; options
