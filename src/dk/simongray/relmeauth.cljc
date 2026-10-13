@@ -18,7 +18,7 @@
             [dk.simongray.wary-fetch :as http]
             [dk.simongray.wary-fetch.async :as async]
             [dk.simongray.wary-fetch.bytes :as bytes]
-            [dk.simongray.wary-fetch.headers :as headers]))
+            [dk.simongray.whatwg-mime :as mime]))
 
 ;;; options
 
@@ -77,7 +77,7 @@
   "The Hiccup of the HTML page in the `response`, or nil when it holds
   another kind of document."
   [{:keys [headers body] :as response}]
-  (let [type (headers/media-type (headers/header headers "content-type"))]
+  (let [type (mime/essence (mime/extract (get headers "content-type")))]
     (when (and (string? body)
                (contains? #{nil "text/html" "application/xhtml+xml"} type))
       (html/parse body))))
